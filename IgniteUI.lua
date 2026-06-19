@@ -2397,7 +2397,7 @@ function ColorPicker:_updateSV( mx: number, my: number )
     local v = Utils.clamp( 1 - ( my - sp.Y ) / ss.Y, 0, 1 )
     self._s = s
     self._v = v
-    self:_svThumb.Position = UDim2.new( s, -4, 1 - v, -4 )
+    self._svThumb.Position = UDim2.new( s, -4, 1 - v, -4 )
     self:_updateColor( Color3.fromHSV( self._h, s, v ) )
 end
 
