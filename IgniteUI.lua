@@ -71,123 +71,58 @@ local function setParentSafe(gui, parent)
 end
 
 -- ========================================================
--- FONTS — Inter (preferred) with safe enum fallbacks
+-- FONTS — Inter (smooth, modern) + MaterialIcons
 -- ========================================================
--- All Enum.Font fallbacks are validated to exist in current Roblox.
--- SourceSansMedium / SourceSansSemibold were deprecated — replaced with
--- SourceSans / GothamMedium (which both still exist).
-local function tryFont(assetPath, weight, enumFallback)
-    weight = weight or Enum.FontWeight.Regular
-    local ok, font = pcall(function()
-        return Font.new(assetPath, weight)
-    end)
-    if ok and font then return font end
-    -- Try enum fallback (validate it actually exists)
-    if enumFallback then
-        ok, font = pcall(function() return Font.fromEnum(enumFallback) end)
-        if ok and font then return font end
-    end
-    -- Last resort: Builder Sans via enum (always available in modern Roblox)
-    ok, font = pcall(function() return Font.fromEnum(Enum.Font.BuilderSans) end)
-    if ok and font then return font end
-    return nil
+-- Inter is loaded directly from Roblox asset path with proper weight.
+-- MaterialIcons is the Roblox built-in icon font.
+local function makeFont(assetPath, weight)
+    return Font.new(assetPath, weight)
 end
 
-local function tryIconFont()
-    -- Roblox has built-in MaterialIcons enum font
-    local ok, font = pcall(function() return Font.fromEnum(Enum.Font.MaterialIcons) end)
-    if ok and font then return font end
-    -- Fallback: try asset path
-    ok, font = pcall(function()
-        return Font.new("rbxasset://fonts/families/MaterialIcons.json", Enum.FontWeight.Regular)
-    end)
-    if ok and font then return font end
-    -- Last resort: Builder Sans (icons will appear as unicode fallback chars)
-    return tryFont("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Regular)
-end
-
--- Helper to safely get an enum font (returns nil if enum doesn't exist)
-local function safeEnumFont(name)
-    local ok, font = pcall(function() return Font.fromEnum(name) end)
-    if ok and font then return font end
-    return nil
-end
+local FontWeight = Enum.FontWeight
 
 local F = {
-    Regular   = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Regular, Enum.Font.SourceSans),
-    Medium    = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Medium, Enum.Font.SourceSans),
-    Semibold  = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.SemiBold, Enum.Font.GothamMedium),
-    Bold      = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Bold, Enum.Font.GothamBold),
-    Black     = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Heavy, Enum.Font.GothamBlack),
-    Mono      = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Medium, Enum.Font.Code),
-    Icons     = tryIconFont(),
+    Regular   = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.Regular),
+    Medium    = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.Medium),
+    Semibold  = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.SemiBold),
+    Bold      = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.Bold),
+    Black     = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.Heavy),
+    Mono      = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.Medium),
+    Icons     = Font.fromEnum(Enum.Font.MaterialIcons),
 }
 
 -- ========================================================
--- ICONS — dual system
+-- ICONS — Material Icons (Roblox built-in icon font)
 -- ========================================================
--- Try MaterialIcons font first (Roblox built-in enum).
--- If MaterialIcons is unavailable, the ICON_UNICODE fallback table contains
--- glyphs that render in any font (Builder Sans, Source Sans, etc).
-local MaterialIconsAvailable = F.Icons and pcall(function()
-    -- Sanity check: MaterialIcons enum font should not equal Builder Sans enum font
-    -- We can't directly compare Font objects, so just trust the load order
-    return true
-end)
-
--- Material Icons glyphs (used for notification + keybind list icons)
--- NOTE: Roblox Luau requires \u{XXXX} format with braces (not \uXXXX)
+-- MaterialIcons is loaded via Enum.Font.MaterialIcons.
+-- Codepoints use Luau \u{XXXX} format (with braces).
 local ICON = {
-    Check     = "\u{e5ca}",
-    Warning   = "\u{e002}",
-    Error     = "\u{e000}",
-    Info      = "\u{e88f}",
-    Keyboard  = "\u{e312}",
-    Close     = "\u{e5cd}",
-    Add       = "\u{e145}",
-    Drag      = "\u{e25d}",
-    Search    = "\u{e8b6}",
-    Settings  = "\u{e8b8}",
-    Combat    = "\u{e038}",
-    Visuals   = "\u{e417}",
-    Misc      = "\u{e037}",
-    Skins     = "\u{ea62}",
-    Home      = "\u{e88a}",
-    Bolt      = "\u{ea0c}",
+    Check     = "\u{e5ca}",  -- check
+    Warning   = "\u{e002}",  -- warning
+    Error     = "\u{e000}",  -- error
+    Info      = "\u{e88f}",  -- info
+    Keyboard  = "\u{e312}",  -- keyboard
+    Close     = "\u{e5cd}",  -- close
+    Add       = "\u{e145}",  -- add
+    Drag      = "\u{e25d}",  -- drag_indicator
+    Search    = "\u{e8b6}",  -- search
+    Settings  = "\u{e8b8}",  -- settings
+    Combat    = "\u{e038}",  -- whatshot (combat)
+    Visuals   = "\u{e417}",  -- visibility
+    Misc      = "\u{e037}",  -- extension
+    Skins     = "\u{ea62}",  -- style
+    Home      = "\u{e88a}",  -- home
+    Bolt      = "\u{ea0c}",  -- bolt
 }
 
--- Unicode fallback (renders in ANY font including Builder Sans / Inter)
-local ICON_UNICODE = {
-    Check     = "✓",
-    Warning   = "!",
-    Error     = "✕",
-    Info      = "i",
-    Keyboard  = "⌨",
-    Close     = "✕",
-    Add       = "+",
-    Drag      = "⋮⋮",
-    Search    = "⌕",
-    Settings  = "⚙",
-    Combat    = "⚔",
-    Visuals   = "◉",
-    Misc      = "⋯",
-    Skins     = "◆",
-    Home      = "⌂",
-    Bolt      = "⚡",
-}
-
--- Pick the right glyph based on which font we have
+-- Pick the icon glyph by name
 local function icon(name)
-    if F.Icons then
-        return ICON[name] or ""
-    else
-        return ICON_UNICODE[name] or ""
-    end
+    return ICON[name] or ""
 end
 
--- Returns the font face to use for icons (MaterialIcons if available, else the body font)
+-- Returns the MaterialIcons font face
 local function iconFont()
-    return F.Icons or F.Medium
+    return F.Icons
 end
 
 -- ========================================================
@@ -240,11 +175,43 @@ end
 -- ========================================================
 -- UTILITY: Tween
 -- ========================================================
+-- IMPORTANT: Roblox's Tween object DOES NOT have a :Wait() method in Luau.
+-- Use TweenWait() helper instead of calling tween:Wait() directly.
 local function Tween(obj, time, style, dir, props)
     local info = TweenInfo.new(time, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out)
     local t = TweenService:Create(obj, info, props)
     t:Play()
     return t
+end
+
+-- Safely wait for a tween to complete.
+-- Uses Completed:Wait() (works in Luau); falls back to task.wait(time) if signal fails.
+local function TweenWait(tween, time)
+    if not tween then return end
+    time = time or 0
+    -- Try Completed signal first
+    local ok = pcall(function()
+        if tween.Completed then
+            local conn
+            conn = tween.Completed:Connect(function() conn:Disconnect() end)
+        end
+    end)
+    if ok and tween.Completed then
+        local done = false
+        local conn = tween.Completed:Connect(function()
+            done = true
+            conn:Disconnect()
+        end)
+        -- Safety timeout in case Completed never fires
+        local startTime = os.clock()
+        while not done and (os.clock() - startTime) < (time + 1) do
+            task.wait(0.03)
+        end
+        if conn.Connected then conn:Disconnect() end
+    else
+        -- Fallback: just wait the duration
+        task.wait(time)
+    end
 end
 
 local function TweenIn(obj, time, props)
@@ -257,6 +224,22 @@ end
 
 local function TweenBounce(obj, time, props)
     return Tween(obj, time, Enum.EasingStyle.Back, Enum.EasingDirection.Out, props)
+end
+
+-- Helpers that create AND wait (so callers don't need to call :Wait())
+local function TweenInWait(obj, time, props)
+    local t = TweenIn(obj, time, props)
+    TweenWait(t, time)
+end
+
+local function TweenOutWait(obj, time, props)
+    local t = TweenOut(obj, time, props)
+    TweenWait(t, time)
+end
+
+local function TweenBounceWait(obj, time, props)
+    local t = TweenBounce(obj, time, props)
+    TweenWait(t, time)
 end
 
 -- ========================================================
@@ -627,9 +610,9 @@ do
         -- Slide-in: from offset +360 to 0, with Back ease for slight bounce
         task.spawn(function()
             -- Slide in
-            TweenBounce(bar, 0.25, {
+            TweenBounceWait(bar, 0.25, {
                 Position = UDim2.new(1, 0, 0, 0),
-            }):Wait()
+            })
 
             -- Shrink progress bar over `duration`
             TweenOut(progress, duration, {
@@ -640,9 +623,9 @@ do
             task.wait(duration)
 
             -- Slide out (same direction — back to the right)
-            TweenOut(bar, 0.2, {
+            TweenOutWait(bar, 0.2, {
                 Position = UDim2.new(1, 360, 0, 0),
-            }):Wait()
+            })
 
             bar:Destroy()
             for i, n in ipairs(self._notifications) do
@@ -655,9 +638,9 @@ do
         return {
             Bar = bar,
             Close = function()
-                TweenOut(bar, 0.15, {
+                TweenOutWait(bar, 0.15, {
                     Position = UDim2.new(1, 360, 0, 0),
-                }):Wait()
+                })
                 bar:Destroy()
             end,
         }
@@ -1759,7 +1742,7 @@ function Window:AddTab(options)
                 Position = UDim2.new(1, -16, 0.5, -7),
                 BackgroundTransparency = 1,
                 FontFace = iconFont(),
-                Text = F.Icons and "\u{e5c5}" or "▾", -- arrow_drop_down / fallback
+                Text = "\u{e5c5}", -- arrow_drop_down (MaterialIcons)
                 TextColor3 = theme.Accent,
                 TextSize = 16,
                 Parent = valueLabel,
@@ -1825,7 +1808,7 @@ function Window:AddTab(options)
             function toggleOpen(v)
                 open = v
                 dropdownList.Visible = v
-                arrow.Text = v and (F.Icons and "\u{e5c7}" or "▴") or (F.Icons and "\u{e5c5}" or "▾")  -- arrow_drop_up / arrow_drop_down
+                arrow.Text = v and "\u{e5c7}" or "\u{e5c5}"  -- arrow_drop_up / arrow_drop_down
                 if v then
                     dropdownList.Size = UDim2.new(0, 200, 0, 0)
                     TweenIn(dropdownList, 0.15, {
