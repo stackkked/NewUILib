@@ -72,35 +72,60 @@ end
 
 -- ========================================================
 -- FONTS — Builder Sans (smooth, Roboto-like, native)
+-- With pcall fallbacks for executors that don't support Font.new / specific font paths
 -- ========================================================
+local function tryFont(assetPath, weight)
+    local ok, font = pcall(function()
+        return Font.new(assetPath, weight or Enum.FontWeight.Regular)
+    end)
+    if ok and font then return font end
+    -- Fallback to a built-in Roblox font face via Font.fromEnum (also try-catch)
+    ok, font = pcall(function()
+        return Font.fromEnum(Enum.Font.BuilderSans)
+    end)
+    if ok and font then return font end
+    -- Last resort: nil — instance will use default font
+    return nil
+end
+
+local function tryIconFont()
+    local ok, font = pcall(function()
+        return Font.new("rbxasset://fonts/families/MaterialIcons.json", Enum.FontWeight.Regular)
+    end)
+    if ok and font then return font end
+    -- Some executors don't have MaterialIcons — fall back to Builder Sans
+    return tryFont("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Regular)
+end
+
 local F = {
-    Regular   = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Regular),
-    Medium    = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Medium),
-    Semibold  = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold),
-    Bold      = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Bold),
-    Black     = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
-    Mono      = Font.new("rbxasset://fonts/families/BuilderSansMono.json", Enum.FontWeight.Medium),
-    Icons     = Font.new("rbxasset://fonts/families/MaterialIcons.json", Enum.FontWeight.Regular),
+    Regular   = tryFont("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Regular),
+    Medium    = tryFont("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Medium),
+    Semibold  = tryFont("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold),
+    Bold      = tryFont("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Bold),
+    Black     = tryFont("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
+    Mono      = tryFont("rbxasset://fonts/families/BuilderSansMono.json", Enum.FontWeight.Medium),
+    Icons     = tryIconFont(),
 }
 
 -- Material Icons glyphs (used for notification + keybind list icons)
+-- NOTE: Roblox Luau requires \u{XXXX} format with braces (not \uXXXX)
 local ICON = {
-    Check     = "\ue5ca",
-    Warning   = "\ue002",
-    Error     = "\ue000",
-    Info      = "\ue88f",
-    Keyboard  = "\ue312",
-    Close     = "\ue5cd",
-    Add       = "\ue145",
-    Drag      = "\ue25d",
-    Search    = "\ue8b6",
-    Settings  = "\ue8b8",
-    Combat    = "\ue038",
-    Visuals   = "\ue417",
-    Misc      = "\ue037",
-    Skins     = "\uea62",
-    Home      = "\ue88a",
-    Bolt      = "\uea0c",
+    Check     = "\u{e5ca}",
+    Warning   = "\u{e002}",
+    Error     = "\u{e000}",
+    Info      = "\u{e88f}",
+    Keyboard  = "\u{e312}",
+    Close     = "\u{e5cd}",
+    Add       = "\u{e145}",
+    Drag      = "\u{e25d}",
+    Search    = "\u{e8b6}",
+    Settings  = "\u{e8b8}",
+    Combat    = "\u{e038}",
+    Visuals   = "\u{e417}",
+    Misc      = "\u{e037}",
+    Skins     = "\u{ea62}",
+    Home      = "\u{e88a}",
+    Bolt      = "\u{ea0c}",
 }
 
 -- ========================================================
@@ -178,8 +203,13 @@ end
 local function Make(class, props, children)
     local inst = Instance.new(class)
     for k, v in pairs(props or {}) do
-        if k ~= "Parent" then
-            inst[k] = v
+        if k ~= "Parent" and v ~= nil then
+            -- Skip nil values so optional font/color assignments don't crash
+            local ok, err = pcall(function() inst[k] = v end)
+            if not ok then
+                warn(string.format("[Ignite] Failed to set property %s.%s = %s: %s",
+                    class, tostring(k), tostring(v), tostring(err)))
+            end
         end
     end
     for _, c in ipairs(children or {}) do
@@ -364,29 +394,39 @@ local Library = {
     Icons = ICON,
 }
 
--- Additional theme presets
-Library.Themes.Blue = table.clone(DefaultTheme)
+-- Additional theme presets (with safe clone fallback)
+local function cloneTable(t)
+    if type(t) ~= "table" then return {} end
+    local ok, result = pcall(function() return table.clone(t) end)
+    if ok and result then return result end
+    -- Manual shallow clone fallback
+    local copy = {}
+    for k, v in pairs(t) do copy[k] = v end
+    return copy
+end
+
+Library.Themes.Blue = cloneTable(DefaultTheme)
 Library.Themes.Blue.Name = "Blue"
 Library.Themes.Blue.Accent = Color3.fromRGB(0, 122, 255)
 Library.Themes.Blue.AccentLight = Color3.fromRGB(51, 153, 255)
 Library.Themes.Blue.AccentDark = Color3.fromRGB(0, 81, 204)
 Library.Themes.Blue.ToggleOn = Color3.fromRGB(0, 122, 255)
 
-Library.Themes.Purple = table.clone(DefaultTheme)
+Library.Themes.Purple = cloneTable(DefaultTheme)
 Library.Themes.Purple.Name = "Purple"
 Library.Themes.Purple.Accent = Color3.fromRGB(155, 89, 182)
 Library.Themes.Purple.AccentLight = Color3.fromRGB(187, 143, 206)
 Library.Themes.Purple.AccentDark = Color3.fromRGB(124, 71, 146)
 Library.Themes.Purple.ToggleOn = Color3.fromRGB(155, 89, 182)
 
-Library.Themes.Green = table.clone(DefaultTheme)
+Library.Themes.Green = cloneTable(DefaultTheme)
 Library.Themes.Green.Name = "Green"
 Library.Themes.Green.Accent = Color3.fromRGB(46, 204, 113)
 Library.Themes.Green.AccentLight = Color3.fromRGB(76, 209, 138)
 Library.Themes.Green.AccentDark = Color3.fromRGB(34, 153, 84)
 Library.Themes.Green.ToggleOn = Color3.fromRGB(46, 204, 113)
 
-Library.Themes.Red = table.clone(DefaultTheme)
+Library.Themes.Red = cloneTable(DefaultTheme)
 Library.Themes.Red.Name = "Red"
 Library.Themes.Red.Accent = Color3.fromRGB(231, 76, 60)
 Library.Themes.Red.AccentLight = Color3.fromRGB(245, 121, 109)
@@ -424,7 +464,7 @@ do
         Parent = RootGui,
     })
     ListLayout(8, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Right).Parent = notifContainer
-    notifContainer:AddTag("IgnoreGuiInset")
+    pcall(function() notifContainer:AddTag("IgnoreGuiInset") end)
 
     local NotifMeta = {}
     NotifMeta.__index = NotifMeta
@@ -1709,7 +1749,7 @@ function Window:AddTab(options)
                 Position = UDim2.new(1, -16, 0.5, -7),
                 BackgroundTransparency = 1,
                 FontFace = F.Icons,
-                Text = "\ue5c5", -- arrow_drop_down
+                Text = "\u{e5c5}", -- arrow_drop_down
                 TextColor3 = theme.Accent,
                 TextSize = 16,
                 Parent = valueLabel,
@@ -1775,7 +1815,7 @@ function Window:AddTab(options)
             function toggleOpen(v)
                 open = v
                 dropdownList.Visible = v
-                arrow.Text = v and "\ue5c7" or "\ue5c5"  -- arrow_drop_up / arrow_drop_down
+                arrow.Text = v and "\u{e5c7}" or "\u{e5c5}"  -- arrow_drop_up / arrow_drop_down
                 if v then
                     dropdownList.Size = UDim2.new(0, 200, 0, 0)
                     TweenIn(dropdownList, 0.15, {
