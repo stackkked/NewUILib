@@ -139,7 +139,7 @@ function Utils.formatNumber( v: number, decimals: number? ): string
 end
 
 -- Safe call wrapper.
-function Utils.safe( fn: ( ... ) -> ... ): ( boolean, any )
+function Utils.safe( fn )
     return pcall( fn )
 end
 
