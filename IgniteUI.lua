@@ -117,7 +117,7 @@ function Utils.hsvToColor( h: number, s: number, v: number ): Color3
 end
 
 -- Convert Color3 -> r, g, b 0..255 integers.
-function Utils.colorToRGB( c: Color3 ): number, number, number
+function Utils.colorToRGB( c: Color3 ): ( number, number, number )
     return math.floor( c.R * 255 + 0.5 ),
            math.floor( c.G * 255 + 0.5 ),
            math.floor( c.B * 255 + 0.5 )
