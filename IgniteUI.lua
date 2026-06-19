@@ -232,7 +232,7 @@ function Signal.new()
     return self
 end
 
-function Signal:Connect( fn: ( ... ) -> ... )
+function Signal:Connect( fn: ( ...any ) -> ...any )
     assert( type( fn ) == "function", "Signal:Connect expects a function" )
     local handler = { fn = fn, connected = true }
     table.insert( self._handlers, handler )
@@ -253,7 +253,7 @@ function Signal:Connect( fn: ( ... ) -> ... )
     }
 end
 
-function Signal:Once( fn: ( ... ) -> ... )
+function Signal:Once( fn: ( ...any ) -> ...any )
     local conn
     conn = self:Connect( function( ... )
         if conn then conn:Disconnect() end
@@ -281,7 +281,7 @@ function Signal:Fire( ... )
     end
 end
 
-function Signal:Wait(): ( ... )
+function Signal:Wait(): ...any
     local thread = coroutine.running()
     local args
     local conn
