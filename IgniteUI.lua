@@ -71,41 +71,59 @@ local function setParentSafe(gui, parent)
 end
 
 -- ========================================================
--- FONTS — Builder Sans (smooth, Roboto-like, native)
--- With pcall fallbacks for executors that don't support Font.new / specific font paths
+-- FONTS — Inter (preferred) with Builder Sans fallback
 -- ========================================================
-local function tryFont(assetPath, weight)
+local function tryFont(assetPath, weight, enumFallback)
+    weight = weight or Enum.FontWeight.Regular
     local ok, font = pcall(function()
-        return Font.new(assetPath, weight or Enum.FontWeight.Regular)
+        return Font.new(assetPath, weight)
     end)
     if ok and font then return font end
-    -- Fallback to a built-in Roblox font face via Font.fromEnum (also try-catch)
-    ok, font = pcall(function()
-        return Font.fromEnum(Enum.Font.BuilderSans)
-    end)
+    -- Try enum fallback
+    if enumFallback then
+        ok, font = pcall(function() return Font.fromEnum(enumFallback) end)
+        if ok and font then return font end
+    end
+    -- Last resort: Builder Sans via enum (always available)
+    ok, font = pcall(function() return Font.fromEnum(Enum.Font.BuilderSans) end)
     if ok and font then return font end
-    -- Last resort: nil — instance will use default font
     return nil
 end
 
 local function tryIconFont()
-    local ok, font = pcall(function()
+    -- Roblox has built-in MaterialIcons enum font
+    local ok, font = pcall(function() return Font.fromEnum(Enum.Font.MaterialIcons) end)
+    if ok and font then return font end
+    -- Fallback: try asset path
+    ok, font = pcall(function()
         return Font.new("rbxasset://fonts/families/MaterialIcons.json", Enum.FontWeight.Regular)
     end)
     if ok and font then return font end
-    -- Some executors don't have MaterialIcons — fall back to Builder Sans
+    -- Last resort: Builder Sans (icons will appear as boxes — that's why we have UNICODE fallbacks)
     return tryFont("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Regular)
 end
 
 local F = {
-    Regular   = tryFont("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Regular),
-    Medium    = tryFont("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Medium),
-    Semibold  = tryFont("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold),
-    Bold      = tryFont("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Bold),
-    Black     = tryFont("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
-    Mono      = tryFont("rbxasset://fonts/families/BuilderSansMono.json", Enum.FontWeight.Medium),
+    Regular   = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Regular, Enum.Font.SourceSans),
+    Medium    = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Medium, Enum.Font.SourceSansMedium),
+    Semibold  = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.SemiBold, Enum.Font.SourceSansSemibold),
+    Bold      = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Bold, Enum.Font.GothamBold),
+    Black     = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Heavy, Enum.Font.GothamBlack),
+    Mono      = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Medium, Enum.Font.Code),
     Icons     = tryIconFont(),
 }
+
+-- ========================================================
+-- ICONS — dual system
+-- ========================================================
+-- Try MaterialIcons font first (Roblox built-in enum).
+-- If MaterialIcons is unavailable, the ICON_UNICODE fallback table contains
+-- glyphs that render in any font (Builder Sans, Source Sans, etc).
+local MaterialIconsAvailable = F.Icons and pcall(function()
+    -- Sanity check: MaterialIcons enum font should not equal Builder Sans enum font
+    -- We can't directly compare Font objects, so just trust the load order
+    return true
+end)
 
 -- Material Icons glyphs (used for notification + keybind list icons)
 -- NOTE: Roblox Luau requires \u{XXXX} format with braces (not \uXXXX)
@@ -127,6 +145,40 @@ local ICON = {
     Home      = "\u{e88a}",
     Bolt      = "\u{ea0c}",
 }
+
+-- Unicode fallback (renders in ANY font including Builder Sans / Inter)
+local ICON_UNICODE = {
+    Check     = "✓",
+    Warning   = "!",
+    Error     = "✕",
+    Info      = "i",
+    Keyboard  = "⌨",
+    Close     = "✕",
+    Add       = "+",
+    Drag      = "⋮⋮",
+    Search    = "⌕",
+    Settings  = "⚙",
+    Combat    = "⚔",
+    Visuals   = "◉",
+    Misc      = "⋯",
+    Skins     = "◆",
+    Home      = "⌂",
+    Bolt      = "⚡",
+}
+
+-- Pick the right glyph based on which font we have
+local function icon(name)
+    if F.Icons then
+        return ICON[name] or ""
+    else
+        return ICON_UNICODE[name] or ""
+    end
+end
+
+-- Returns the font face to use for icons (MaterialIcons if available, else the body font)
+local function iconFont()
+    return F.Icons or F.Medium
+end
 
 -- ========================================================
 -- DEFAULT THEME (Orange like reference)
@@ -260,49 +312,51 @@ local function ListLayout(padding, dir, align)
 end
 
 -- ========================================================
--- DRAG SYSTEM (smooth, tween-assisted)
+-- DRAG SYSTEM (reliable, no Tween conflicts, no axis clamps)
 -- ========================================================
 local function MakeDraggable(frame, handle)
     handle = handle or frame
     local dragging = false
-    local dragInput, dragStart, startPos
+    local dragStart, startPos
+    local activeInput = nil
 
     handle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
+            activeInput = input
             dragStart = input.Position
             startPos = frame.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
         end
     end)
 
-    handle.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement
+    handle.InputEnded:Connect(function(input)
+        if input == activeInput or input.UserInputType == Enum.UserInputType.MouseMovement then
+            -- not relevant here
+        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
+            dragging = false
+            activeInput = nil
         end
     end)
 
+    -- Use a single global handler per drag system; check dragging flag
     UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - dragStart
-            local newPos = UDim2.new(
-                startPos.X.Scale,
-                startPos.X.Offset + delta.X,
-                startPos.Y.Scale,
-                startPos.Y.Offset + delta.Y
-            )
-            -- snap to viewport (roughly)
-            local vpSize = workspace.CurrentCamera.ViewportSize
-            local clampedX = Clamp(newPos.X.Offset, -frame.AbsoluteSize.X + 80, vpSize.X - 80)
-            local clampedY = Clamp(newPos.Y.Offset, 0, vpSize.Y - 40)
-            frame.Position = UDim2.new(newPos.X.Scale, clampedX, newPos.Y.Scale, clampedY)
+        if not dragging then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement
+        and input.UserInputType ~= Enum.UserInputType.Touch then
+            return
         end
+        local delta = input.Position - dragStart
+        -- No clamping — let the user move freely in any direction.
+        -- (Previous version had a Clamp call that broke vertical movement.)
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
     end)
 end
 
@@ -449,38 +503,34 @@ do
 end
 
 -- ========================================================
--- NOTIFICATIONS — CS:GO damage style
+-- NOTIFICATIONS — thin single-line bars (CS:GO damage style)
 -- ========================================================
--- Stack on right side, slide-in from right with Back ease (bounce),
--- thin progress bar at the bottom fills full -> empty over duration,
--- then slide-out and destroy. Types: None / Warning / Error / Success / Info
+-- Each notification is a thin horizontal bar that slides in from the right,
+-- shows [icon] Title — Description, then slides back out after `duration`.
+-- Multiple notifications stack vertically with a small gap.
 do
     local notifContainer = Make("Frame", {
         Name = "Notifications",
         AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -20, 0, 20),
-        Size = UDim2.new(0, 340, 1, -40),
+        Position = UDim2.new(1, -16, 0, 16),
+        Size = UDim2.new(0, 320, 1, -32),
         BackgroundTransparency = 1,
         Parent = RootGui,
     })
-    ListLayout(8, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Right).Parent = notifContainer
-    pcall(function() notifContainer:AddTag("IgnoreGuiInset") end)
-
-    local NotifMeta = {}
-    NotifMeta.__index = NotifMeta
+    local notifLayout = ListLayout(4, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Right)
+    notifLayout.Parent = notifContainer
 
     local function NotifTypeStyle(nType, theme)
-        -- Returns { color, icon, iconColor }
         if nType == "Success" then
-            return theme.Success, ICON.Check, Color3.new(1, 1, 1)
+            return theme.Success, icon("Check"), Color3.new(1, 1, 1)
         elseif nType == "Warning" then
-            return theme.Warning, ICON.Warning, Color3.new(0, 0, 0)
+            return theme.Warning, icon("Warning"), Color3.new(0, 0, 0)
         elseif nType == "Error" then
-            return theme.Error, ICON.Error, Color3.new(1, 1, 1)
+            return theme.Error, icon("Error"), Color3.new(1, 1, 1)
         elseif nType == "Info" then
-            return theme.Info, ICON.Info, Color3.new(1, 1, 1)
+            return theme.Info, icon("Info"), Color3.new(1, 1, 1)
         else
-            return theme.Accent, ICON.Bolt, Color3.new(1, 1, 1)
+            return theme.Accent, icon("Bolt"), Color3.new(1, 1, 1)
         end
     end
 
@@ -494,158 +544,111 @@ do
 
         local accentColor, iconGlyph, iconColor = NotifTypeStyle(nType, theme)
 
-        -- Main notification card
-        local card = Make("Frame", {
-            Name = "NotifCard",
-            Size = UDim2.new(1, 0, 0, 0),  -- auto via AutomaticSize
-            AutomaticSize = Enum.AutomaticSize.Y,
+        -- Single text line: "Title — Description" (or just Title if no desc)
+        local line = title
+        if desc and desc ~= "" then
+            line = title .. "  —  " .. desc
+        end
+
+        -- The bar itself — thin single-line strip
+        local bar = Make("Frame", {
+            Name = "NotifBar",
+            Size = UDim2.new(1, 0, 0, 28),
             BackgroundColor3 = theme.Surface,
+            BackgroundTransparency = 0.0,
             BorderSizePixel = 0,
             AnchorPoint = Vector2.new(1, 0),
-            Position = UDim2.new(1, 360, 0, 0),  -- off-screen right
+            Position = UDim2.new(1, 360, 0, 0),  -- off-screen right (will slide in)
             LayoutOrder = #self._notifications + 1,
             Parent = notifContainer,
         })
-        Corner(theme.CornerSize).Parent = card
-        Stroke(theme.Border, 1, 0.2).Parent = card
+        Corner(UDim.new(0, 4)).Parent = bar
+        Stroke(theme.Border, 1, 0.3).Parent = bar
 
-        -- Accent stripe on the left
-        local stripe = Make("Frame", {
-            Name = "Stripe",
-            Size = UDim2.new(0, 4, 1, 0),
+        -- Left accent dot (small circle, not a full stripe — keeps the bar thin)
+        local dot = Make("Frame", {
+            Name = "Dot",
+            Size = UDim2.new(0, 8, 0, 8),
+            Position = UDim2.new(0, 8, 0.5, -4),
             BackgroundColor3 = accentColor,
             BorderSizePixel = 0,
-            Parent = card,
+            Parent = bar,
         })
-        Corner(UDim.new(0, 2)).Parent = stripe
+        Corner(UDim.new(1, 0)).Parent = dot
 
-        -- Inner padding container
-        local inner = Make("Frame", {
-            Name = "Inner",
-            Size = UDim2.new(1, -4, 1, 0),
-            Position = UDim2.new(0, 4, 0, 0),
-            BackgroundTransparency = 1,
-            Parent = card,
-        })
-        Padding(12).Parent = inner
-
-        -- Icon circle
-        local iconCircle = Make("Frame", {
-            Name = "IconCircle",
-            Size = UDim2.new(0, 28, 0, 28),
-            BackgroundColor3 = accentColor,
-            BorderSizePixel = 0,
-            Parent = inner,
-        })
-        Corner(UDim.new(1, 0)).Parent = iconCircle
-
+        -- Icon glyph (small, left of text)
         local iconLabel = Make("TextLabel", {
-            Name = "IconLabel",
-            Size = UDim2.new(1, 0, 1, 0),
+            Name = "Icon",
+            Size = UDim2.new(0, 18, 0, 18),
+            Position = UDim2.new(0, 22, 0.5, -9),
             BackgroundTransparency = 1,
-            FontFace = F.Icons,
+            FontFace = iconFont(),
             Text = iconGlyph,
-            TextColor3 = iconColor,
-            TextSize = 18,
-            Parent = iconCircle,
-        })
-
-        -- Right column: title + description
-        local textColumn = Make("Frame", {
-            Name = "TextColumn",
-            Size = UDim2.new(1, -40, 1, 0),
-            Position = UDim2.new(0, 40, 0, 0),
-            BackgroundTransparency = 1,
-            Parent = inner,
-        })
-        ListLayout(2, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Left).Parent = textColumn
-
-        local titleLabel = Make("TextLabel", {
-            Name = "Title",
-            Size = UDim2.new(1, 0, 0, 18),
-            BackgroundTransparency = 1,
-            FontFace = F.Semibold,
-            Text = title,
-            TextColor3 = theme.TextPrimary,
+            TextColor3 = accentColor,
             TextSize = 14,
+            Parent = bar,
+        })
+
+        -- Single text label — full line, single-line truncation
+        local textLabel = Make("TextLabel", {
+            Name = "Text",
+            Size = UDim2.new(1, -52, 1, 0),
+            Position = UDim2.new(0, 44, 0, 0),
+            BackgroundTransparency = 1,
+            FontFace = F.Medium,
+            Text = line,
+            TextColor3 = theme.TextPrimary,
+            TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
-            LayoutOrder = 1,
-            Parent = textColumn,
+            Parent = bar,
         })
 
-        local descLabel = Make("TextLabel", {
-            Name = "Desc",
-            Size = UDim2.new(1, 0, 0, 0),
-            AutomaticSize = Enum.AutomaticSize.Y,
-            BackgroundTransparency = 1,
-            FontFace = F.Regular,
-            Text = desc,
-            TextColor3 = theme.TextSecondary,
-            TextSize = 12,
-            TextWrapped = true,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextYAlignment = Enum.TextYAlignment.Top,
-            LayoutOrder = 2,
-            Visible = desc ~= "",
-            Parent = textColumn,
-        })
-
-        -- Progress bar at bottom
+        -- Thin progress line at the very bottom of the bar
         local progress = Make("Frame", {
             Name = "Progress",
-            Size = UDim2.new(1, 0, 0, 2),
-            Position = UDim2.new(0, 0, 1, -2),
+            Size = UDim2.new(1, 0, 0, 1),
+            Position = UDim2.new(0, 0, 1, -1),
             BackgroundColor3 = accentColor,
-            BackgroundTransparency = 0.4,
             BorderSizePixel = 0,
-            Parent = card,
+            Parent = bar,
         })
 
-        -- Slide-in (bounce)
+        -- Slide-in: from offset +360 to 0, with Back ease for slight bounce
         task.spawn(function()
-            -- First let AutomaticSize settle (two frames for safety)
-            task.wait()
-            task.wait()
-            local measuredHeight = inner.AbsoluteSize.Y + 16
-            if measuredHeight < 24 then measuredHeight = 60 end -- safe fallback
-            card.AutomaticSize = Enum.AutomaticSize.None
-            card.Size = UDim2.new(1, 0, 0, measuredHeight)
-
-            TweenBounce(card, 0.35, {
+            -- Slide in
+            TweenBounce(bar, 0.25, {
                 Position = UDim2.new(1, 0, 0, 0),
             }):Wait()
 
-            -- Animate progress bar
-            local progTween = TweenOut(progress, duration, {
+            -- Shrink progress bar over `duration`
+            TweenOut(progress, duration, {
+                Size = UDim2.new(0, 0, 0, 1),
                 BackgroundTransparency = 1,
-                Size = UDim2.new(0, 0, 0, 2),
             })
 
             task.wait(duration)
 
-            -- Slide-out
-            TweenOut(card, 0.3, {
+            -- Slide out (same direction — back to the right)
+            TweenOut(bar, 0.2, {
                 Position = UDim2.new(1, 360, 0, 0),
-                BackgroundTransparency = 1,
             }):Wait()
 
-            card:Destroy()
-            -- Remove from list
+            bar:Destroy()
             for i, n in ipairs(self._notifications) do
-                if n == card then table.remove(self._notifications, i) break end
+                if n == bar then table.remove(self._notifications, i) break end
             end
         end)
 
-        table.insert(self._notifications, card)
+        table.insert(self._notifications, bar)
 
         return {
-            Card = card,
+            Bar = bar,
             Close = function()
-                TweenOut(card, 0.25, {
+                TweenOut(bar, 0.15, {
                     Position = UDim2.new(1, 360, 0, 0),
                 }):Wait()
-                card:Destroy()
+                bar:Destroy()
             end,
         }
     end
@@ -731,7 +734,7 @@ do
                     Name = "Icon",
                     Size = UDim2.new(0, 16, 0, 16),
                     BackgroundTransparency = 1,
-                    FontFace = F.Icons,
+                    FontFace = iconFont(),
                     Text = seg.Icon,
                     TextColor3 = seg.IconColor or theme.Accent,
                     TextSize = 14,
@@ -796,7 +799,7 @@ do
 end
 
 -- ========================================================
--- KEYBIND LIST — auto-populated
+-- KEYBIND LIST — auto-populated, compact
 -- ========================================================
 do
     local keybindListGui
@@ -811,66 +814,73 @@ do
 
         local list = Make("Frame", {
             Name = "KeybindList",
-            Size = UDim2.new(0, 260, 0, 0),
+            Size = UDim2.new(0, 200, 0, 0),
             AutomaticSize = Enum.AutomaticSize.Y,
             BackgroundColor3 = theme.Surface,
             BackgroundTransparency = 0.05,
             BorderSizePixel = 0,
             AnchorPoint = Vector2.new(1, 1),
-            Position = UDim2.new(1, -16, 1, -16),
+            Position = UDim2.new(1, -12, 1, -12),
             Parent = RootGui,
         })
-        Corner(theme.CornerSize).Parent = list
+        Corner(UDim.new(0, 6)).Parent = list
         Stroke(theme.Border, 1, 0.3).Parent = list
         MakeDraggable(list, list)
 
-        Padding(10).Parent = list
-        local layout = ListLayout(6, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Left)
+        Make("UIPadding", {
+            PaddingLeft = UDim.new(0, 8),
+            PaddingRight = UDim.new(0, 8),
+            PaddingTop = UDim.new(0, 8),
+            PaddingBottom = UDim.new(0, 8),
+            Parent = list,
+        })
+        local layout = ListLayout(4, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Left)
         layout.Parent = list
 
         -- Header
         local header = Make("Frame", {
             Name = "Header",
-            Size = UDim2.new(1, 0, 0, 22),
+            Size = UDim2.new(1, 0, 0, 18),
             BackgroundTransparency = 1,
             LayoutOrder = 1,
             Parent = list,
         })
-        local headerLayout = ListLayout(6, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left)
+        local headerLayout = ListLayout(4, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left)
         headerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
         headerLayout.Parent = header
 
         Make("TextLabel", {
             Name = "HeaderIcon",
-            Size = UDim2.new(0, 18, 0, 18),
+            Size = UDim2.new(0, 14, 0, 14),
             BackgroundTransparency = 1,
-            FontFace = F.Icons,
-            Text = ICON.Keyboard,
+            FontFace = iconFont(),
+            Text = icon("Keyboard"),
             TextColor3 = theme.Accent,
-            TextSize = 16,
+            TextSize = 12,
             LayoutOrder = 1,
             Parent = header,
         })
         Make("TextLabel", {
             Name = "HeaderTitle",
-            Size = UDim2.new(1, -50, 0, 18),
+            Size = UDim2.new(1, -40, 0, 18),
             BackgroundTransparency = 1,
             FontFace = F.Semibold,
-            Text = "Keybind List",
+            Text = "Keybinds",
             TextColor3 = theme.TextPrimary,
-            TextSize = 13,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             LayoutOrder = 2,
             Parent = header,
         })
         counterLabel = Make("TextLabel", {
             Name = "Counter",
-            Size = UDim2.new(0, 20, 0, 18),
+            Size = UDim2.new(0, 18, 0, 18),
             BackgroundTransparency = 1,
             FontFace = F.Medium,
             Text = "0",
             TextColor3 = theme.TextMuted,
-            TextSize = 12,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Right,
             LayoutOrder = 3,
             Parent = header,
         })
@@ -894,7 +904,7 @@ do
             LayoutOrder = 3,
             Parent = list,
         })
-        ListLayout(4, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Left).Parent = listContainer
+        ListLayout(3, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Left).Parent = listContainer
 
         keybindListGui = list
         return list
@@ -906,57 +916,47 @@ do
 
         local entry = Make("Frame", {
             Name = "Entry_" .. name,
-            Size = UDim2.new(1, 0, 0, 20),
+            Size = UDim2.new(1, 0, 0, 16),
             BackgroundTransparency = 1,
             Parent = listContainer,
         })
 
-        local modeText = mode == "Always" and "[Always]" or (mode == "Hold" and "[Hold]" or "[Toggle]")
+        local modeText = mode == "Always" and "[A]" or (mode == "Hold" and "[H]" or "[T]")
         local keyText = key and key.Name or "None"
 
         Make("TextLabel", {
             Name = "Mode",
-            Size = UDim2.new(0, 60, 1, 0),
+            Size = UDim2.new(0, 28, 1, 0),
             BackgroundTransparency = 1,
             FontFace = F.Regular,
             Text = modeText,
             TextColor3 = theme.TextMuted,
-            TextSize = 11,
+            TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             Parent = entry,
         })
         Make("TextLabel", {
             Name = "Name",
-            Size = UDim2.new(1, -130, 1, 0),
-            Position = UDim2.new(0, 60, 0, 0),
-            BackgroundTransparency = 1,
-            FontFace = F.Medium,
-            Text = name,
-            TextColor3 = theme.TextPrimary,
-            TextSize = 12,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            Parent = entry,
-        })
-        Make("TextLabel", {
-            Name = "Dash",
-            Size = UDim2.new(0, 8, 1, 0),
-            Position = UDim2.new(1, -60, 0, 0),
+            Size = UDim2.new(1, -80, 1, 0),
+            Position = UDim2.new(0, 28, 0, 0),
             BackgroundTransparency = 1,
             FontFace = F.Regular,
-            Text = "-",
-            TextColor3 = theme.TextMuted,
+            Text = name,
+            TextColor3 = theme.TextPrimary,
             TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             Parent = entry,
         })
         local keyLabel = Make("TextLabel", {
             Name = "Key",
-            Size = UDim2.new(0, 52, 1, 0),
-            Position = UDim2.new(1, -52, 0, 0),
+            Size = UDim2.new(0, 48, 1, 0),
+            Position = UDim2.new(1, -48, 0, 0),
             BackgroundTransparency = 1,
             FontFace = F.Medium,
             Text = keyText,
             TextColor3 = theme.Accent,
-            TextSize = 12,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Right,
             Parent = entry,
         })
@@ -1242,7 +1242,7 @@ function Library:CreateWindow(options)
     elseif options.Watermark == nil then
         -- Default watermark
         self:SetWatermark({
-            { Text = name, Icon = ICON.Bolt, IconColor = theme.Accent },
+            { Text = name, Icon = icon("Bolt"), IconColor = theme.Accent },
             { Text = function(ctx) return LocalPlayer.Name end },
             { Text = function(ctx) return ctx.FPS .. " fps" end },
             { Text = function(ctx) return ctx.Time end },
@@ -1261,7 +1261,7 @@ function Window:AddTab(options)
     options = options or {}
     local theme = self.Theme
     local tabName = options.Name or "Tab"
-    local icon = options.Icon or ICON.Home
+    local tabIcon = options.Icon or icon("Home")
 
     -- Add sidebar category icon
     local catBtn = Make("TextButton", {
@@ -1270,8 +1270,8 @@ function Window:AddTab(options)
         BackgroundColor3 = theme.Surface,
         BorderSizePixel = 0,
         AutoButtonColor = false,
-        FontFace = F.Icons,
-        Text = icon,
+        FontFace = iconFont(),
+        Text = tabIcon,
         TextColor3 = theme.TextSecondary,
         TextSize = 22,
         LayoutOrder = #self.Categories + 2,
@@ -1748,8 +1748,8 @@ function Window:AddTab(options)
                 Size = UDim2.new(0, 14, 0, 14),
                 Position = UDim2.new(1, -16, 0.5, -7),
                 BackgroundTransparency = 1,
-                FontFace = F.Icons,
-                Text = "\u{e5c5}", -- arrow_drop_down
+                FontFace = iconFont(),
+                Text = F.Icons and "\u{e5c5}" or "▾", -- arrow_drop_down / fallback
                 TextColor3 = theme.Accent,
                 TextSize = 16,
                 Parent = valueLabel,
@@ -1815,7 +1815,7 @@ function Window:AddTab(options)
             function toggleOpen(v)
                 open = v
                 dropdownList.Visible = v
-                arrow.Text = v and "\u{e5c7}" or "\u{e5c5}"  -- arrow_drop_up / arrow_drop_down
+                arrow.Text = v and (F.Icons and "\u{e5c7}" or "▴") or (F.Icons and "\u{e5c5}" or "▾")  -- arrow_drop_up / arrow_drop_down
                 if v then
                     dropdownList.Size = UDim2.new(0, 200, 0, 0)
                     TweenIn(dropdownList, 0.15, {
