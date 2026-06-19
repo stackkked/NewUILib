@@ -115,39 +115,19 @@ if not F.Regular then
 end
 
 -- ========================================================
--- ICONS — BuilderIcons (Roblox's built-in icon font)
+-- ICONS — Unicode primary (always works), BuilderIcons optional
 -- ========================================================
--- BuilderIcons uses TEXT NAMES as glyph identifiers (not codepoints).
--- Set FontFace to F.Icons, then set Text to the icon name.
--- If BuilderIcons failed to load, fall back to Unicode symbols in Inter.
+-- Unicode symbols render in Inter and most fonts. They are the PRIMARY system.
+-- If BuilderIcons font loads, we use it as the font face but with the same
+-- Unicode glyphs (some may render slightly differently, but consistent).
 
--- BuilderIcons glyph names (verified against Roblox's internal icon set)
-local ICON_BUILDER = {
-    Check     = "check",
-    Warning   = "warning",
-    Error     = "error",
-    Info      = "info",
-    Keyboard  = "keyboard",
-    Close     = "close",
-    Add       = "add",
-    Drag      = "drag_indicator",
-    Search    = "search",
-    Settings  = "settings",
-    Combat    = "whatshot",
-    Visuals   = "visibility",
-    Misc      = "extension",
-    Skins     = "style",
-    Home      = "home",
-    Bolt      = "bolt",
-}
-
--- Unicode fallback (renders in Inter and most fonts)
+-- Unicode glyphs (PRIMARY — renders in Inter, Builder Sans, Source Sans, etc.)
 local ICON_UNICODE = {
     Check     = "✓",
     Warning   = "!",
     Error     = "✕",
     Info      = "i",
-    Keyboard  = "▢",
+    Keyboard  = "⌨",
     Close     = "✕",
     Add       = "+",
     Drag      = "≡",
@@ -159,17 +139,21 @@ local ICON_UNICODE = {
     Skins     = "◆",
     Home      = "⌂",
     Bolt      = "⚡",
+    ArrowDown = "▾",
+    ArrowUp   = "▴",
 }
 
--- Pick the right table based on whether BuilderIcons loaded successfully
-local ICON = F.Icons and ICON_BUILDER or ICON_UNICODE
+-- ICON is exposed publicly as Library.Icons — Unicode glyphs
+local ICON = ICON_UNICODE
 
 -- Pick the icon glyph by name
 local function icon(name)
-    return ICON[name] or ""
+    return ICON_UNICODE[name] or ""
 end
 
--- Returns BuilderIcons font if loaded, otherwise Inter Medium (for Unicode glyphs)
+-- Returns the font face to use for icons:
+--   - If BuilderIcons loaded, use it (renders Unicode icons as smooth vector glyphs)
+--   - Otherwise use Inter Medium
 local function iconFont()
     return F.Icons or F.Medium
 end
@@ -714,20 +698,27 @@ do
         local bar = Make("Frame", {
             Name = "Watermark",
             AutomaticSize = Enum.AutomaticSize.X,
-            Size = UDim2.new(0, 0, 0, 32),
+            Size = UDim2.new(0, 0, 0, 28),
             BackgroundColor3 = theme.Surface,
-            BackgroundTransparency = 0.1,
+            BackgroundTransparency = 0.05,
             BorderSizePixel = 0,
             AnchorPoint = Vector2.new(0, 0),
-            Position = UDim2.new(0, 16, 0, 16),
+            Position = UDim2.new(0, 12, 0, 12),
             Parent = RootGui,
         })
-        Corner(theme.CornerSize).Parent = bar
+        Corner(UDim.new(0, 6)).Parent = bar
         Stroke(theme.Border, 1, 0.3).Parent = bar
 
         local layout = ListLayout(0, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left)
+        layout.VerticalAlignment = Enum.VerticalAlignment.Center
         layout.Parent = bar
-        Padding(10).Parent = bar
+        Make("UIPadding", {
+            PaddingLeft = UDim.new(0, 10),
+            PaddingRight = UDim.new(0, 10),
+            PaddingTop = UDim.new(0, 0),
+            PaddingBottom = UDim.new(0, 0),
+            Parent = bar,
+        })
 
         local segInstances = {}
         for i, seg in ipairs(segments) do
@@ -762,12 +753,12 @@ do
             if seg.Icon then
                 iconLabel = Make("TextLabel", {
                     Name = "Icon",
-                    Size = UDim2.new(0, 16, 0, 16),
+                    Size = UDim2.new(0, 14, 0, 14),
                     BackgroundTransparency = 1,
                     FontFace = iconFont(),
                     Text = seg.Icon,
                     TextColor3 = seg.IconColor or theme.Accent,
-                    TextSize = 14,
+                    TextSize = 12,
                     LayoutOrder = 1,
                     Parent = segFrame,
                 })
@@ -776,7 +767,7 @@ do
             local textLabel = Make("TextLabel", {
                 Name = "Text",
                 AutomaticSize = Enum.AutomaticSize.X,
-                Size = UDim2.new(0, 0, 0, 16),
+                Size = UDim2.new(0, 0, 0, 14),
                 BackgroundTransparency = 1,
                 FontFace = F.Medium,
                 Text = "",
@@ -1087,8 +1078,8 @@ function Library:CreateWindow(options)
     -- Root window
     local window = Make("Frame", {
         Name = name .. "_Window",
-        Size = UDim2.new(0, options.Width or 880, 0, options.Height or 560),
-        Position = UDim2.new(0.5, -(options.Width or 880) / 2, 0.5, -(options.Height or 560) / 2),
+        Size = UDim2.new(0, options.Width or 1100, 0, options.Height or 680),
+        Position = UDim2.new(0.5, -(options.Width or 1100) / 2, 0.5, -(options.Height or 680) / 2),
         BackgroundColor3 = theme.Background,
         BorderSizePixel = 0,
         Active = true,
@@ -1297,17 +1288,17 @@ function Window:AddTab(options)
     local catBtn = Make("TextButton", {
         Name = "Cat_" .. tabName,
         Size = UDim2.new(0, 50, 0, 50),
-        BackgroundColor3 = theme.Surface,
+        BackgroundColor3 = theme.SurfaceDark,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         FontFace = iconFont(),
         Text = tabIcon,
         TextColor3 = theme.TextSecondary,
-        TextSize = 22,
+        TextSize = 24,
         LayoutOrder = #self.Categories + 2,
         Parent = self.Sidebar,
     })
-    Corner(UDim.new(0, 8)).Parent = catBtn
+    Corner(UDim.new(0, 10)).Parent = catBtn
 
     -- Tab button in tabbar
     local tabBtn = Make("TextButton", {
@@ -1365,23 +1356,53 @@ function Window:AddTab(options)
     table.insert(self.Tabs, tabObj)
     table.insert(self.Categories, catBtn)
 
-    -- Hover for category button
-    AddHover(catBtn, theme.Surface, theme.SurfaceLight, theme.SurfaceLight)
-
+    -- Hover for category button (overriding AddHover — we want custom colors)
     -- Hover for tab button
     AddHover(tabBtn, theme.Surface, theme.SurfaceLight, theme.SurfaceLight)
+
+    -- Custom hover for category button (start at SurfaceDark)
+    catBtn.MouseEnter:Connect(function()
+        if self.ActiveTab ~= tabObj then
+            TweenIn(catBtn, 0.12, { BackgroundColor3 = theme.Surface })
+        end
+    end)
+    catBtn.MouseLeave:Connect(function()
+        if self.ActiveTab ~= tabObj then
+            TweenIn(catBtn, 0.12, { BackgroundColor3 = theme.SurfaceDark })
+        end
+    end)
 
     -- Click handler
     local function selectTab()
         for _, t in ipairs(self.Tabs) do
             local active = (t == tabObj)
             t.Page.Visible = active
-            t.TabButton.TextColor3 = active and theme.Accent or theme.TextSecondary
-            t.TabButton.BackgroundColor3 = active and theme.SurfaceLight or theme.Surface
-            t.CatButton.TextColor3 = active and theme.Accent or theme.TextSecondary
-            t.CatButton.BackgroundColor3 = active and theme.Surface or theme.Surface
-            if active then
-                TweenIn(t.TabButton, 0.2, { BackgroundColor3 = theme.SurfaceLight })
+            -- Animate tab button colors
+            TweenIn(t.TabButton, 0.18, {
+                TextColor3 = active and theme.Accent or theme.TextSecondary,
+                BackgroundColor3 = active and theme.SurfaceLight or theme.Surface,
+            })
+            -- Animate category button colors (sidebar)
+            TweenIn(t.CatButton, 0.18, {
+                TextColor3 = active and theme.Accent or theme.TextSecondary,
+                BackgroundColor3 = active and theme.Surface or theme.SurfaceDark,
+            })
+            -- Add/remove accent stroke on active sidebar button
+            local existingStroke = t.CatButton:FindFirstChild("ActiveStroke")
+            if active and not existingStroke then
+                local s = Make("UIStroke", {
+                    Name = "ActiveStroke",
+                    Color = theme.Accent,
+                    Thickness = 1.5,
+                    Transparency = 0,
+                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                    Parent = t.CatButton,
+                })
+                s.Transparency = 1
+                TweenIn(s, 0.18, { Transparency = 0 })
+            elseif not active and existingStroke then
+                TweenIn(existingStroke, 0.18, { Transparency = 1 })
+                task.delay(0.2, function() if existingStroke then existingStroke:Destroy() end end)
             end
         end
         self.ActiveTab = tabObj
@@ -1481,21 +1502,54 @@ function Window:AddTab(options)
             local default = opts.Default or false
             local callback = opts.Callback or function() end
 
-            local row = Make("Frame", {
+            local row = Make("TextButton", {
                 Name = "Toggle_" .. tName,
                 Size = UDim2.new(1, 0, 0, 32),
                 BackgroundColor3 = theme.SurfaceLight,
                 BackgroundTransparency = 0.5,
                 BorderSizePixel = 0,
+                AutoButtonColor = false,
+                Text = "",
                 LayoutOrder = #section.Components + 1,
                 Parent = sectionFrame,
             })
             Corner(theme.CornerSmall).Parent = row
 
+            -- Checkbox square (on the LEFT, like reference)
+            local checkbox = Make("Frame", {
+                Name = "Checkbox",
+                Size = UDim2.new(0, 18, 0, 18),
+                Position = UDim2.new(0, 10, 0.5, -9),
+                BackgroundColor3 = theme.SurfaceDark,
+                BorderSizePixel = 0,
+                Parent = row,
+            })
+            Corner(UDim.new(0, 3)).Parent = checkbox
+            local checkStroke = Make("UIStroke", {
+                Color = theme.BorderLight,
+                Thickness = 1.5,
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                Parent = checkbox,
+            })
+
+            -- Check icon (✓) — appears when toggled on
+            local checkIcon = Make("TextLabel", {
+                Name = "CheckIcon",
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                FontFace = F.Bold,
+                Text = icon("Check"),  -- ✓ Unicode
+                TextColor3 = Color3.new(1, 1, 1),
+                TextSize = 13,
+                Visible = false,
+                Parent = checkbox,
+            })
+
+            -- Toggle label (to the right of checkbox)
             Make("TextLabel", {
                 Name = "Label",
-                Size = UDim2.new(1, -50, 1, 0),
-                Position = UDim2.new(0, 10, 0, 0),
+                Size = UDim2.new(1, -40, 1, 0),
+                Position = UDim2.new(0, 36, 0, 0),
                 BackgroundTransparency = 1,
                 FontFace = F.Medium,
                 Text = tName,
@@ -1505,46 +1559,34 @@ function Window:AddTab(options)
                 Parent = row,
             })
 
-            -- Toggle switch
-            local switch = Make("TextButton", {
-                Name = "Switch",
-                Size = UDim2.new(0, 40, 0, 20),
-                Position = UDim2.new(1, -50, 0.5, -10),
-                BackgroundColor3 = theme.ToggleOff,
-                BorderSizePixel = 0,
-                AutoButtonColor = false,
-                Text = "",
-                Parent = row,
-            })
-            Corner(UDim.new(1, 0)).Parent = switch
-
-            local knob = Make("Frame", {
-                Name = "Knob",
-                Size = UDim2.new(0, 16, 0, 16),
-                Position = UDim2.new(0, 2, 0.5, -8),
-                BackgroundColor3 = Color3.new(1, 1, 1),
-                BorderSizePixel = 0,
-                Parent = switch,
-            })
-            Corner(UDim.new(1, 0)).Parent = knob
-
             local state = default
             local function setState(v, fireCallback)
                 state = v
                 if v then
-                    TweenIn(switch, 0.2, { BackgroundColor3 = theme.ToggleOn })
-                    TweenIn(knob, 0.2, { Position = UDim2.new(1, -18, 0.5, -8) })
+                    TweenIn(checkbox, 0.18, { BackgroundColor3 = theme.Accent })
+                    TweenIn(checkStroke, 0.18, { Color = theme.Accent, Transparency = 1 })
+                    TweenIn(checkIcon, 0.15, { TextTransparency = 0, Visible = true })
                 else
-                    TweenIn(switch, 0.2, { BackgroundColor3 = theme.ToggleOff })
-                    TweenIn(knob, 0.2, { Position = UDim2.new(0, 2, 0.5, -8) })
+                    TweenIn(checkbox, 0.18, { BackgroundColor3 = theme.SurfaceDark })
+                    TweenIn(checkStroke, 0.18, { Color = theme.BorderLight, Transparency = 0 })
+                    TweenIn(checkIcon, 0.15, { TextTransparency = 1 })
+                    task.delay(0.15, function() if not state then checkIcon.Visible = false end end)
                 end
                 if fireCallback ~= false then
                     pcall(callback, v)
                 end
             end
 
-            switch.MouseButton1Click:Connect(function()
+            row.MouseButton1Click:Connect(function()
                 setState(not state)
+            end)
+
+            -- Hover effect
+            row.MouseEnter:Connect(function()
+                TweenIn(row, 0.12, { BackgroundColor3 = theme.SurfaceLight, BackgroundTransparency = 0.0 })
+            end)
+            row.MouseLeave:Connect(function()
+                TweenIn(row, 0.12, { BackgroundColor3 = theme.SurfaceLight, BackgroundTransparency = 0.5 })
             end)
 
             -- Initialize
@@ -1779,7 +1821,7 @@ function Window:AddTab(options)
                 Position = UDim2.new(1, -16, 0.5, -7),
                 BackgroundTransparency = 1,
                 FontFace = iconFont(),
-                Text = F.Icons and "arrow_drop_down" or "▾", -- BuilderIcons name / Unicode fallback
+                Text = icon("ArrowDown"), -- ▾ Unicode arrow
                 TextColor3 = theme.Accent,
                 TextSize = 16,
                 Parent = valueLabel,
@@ -1845,7 +1887,7 @@ function Window:AddTab(options)
             function toggleOpen(v)
                 open = v
                 dropdownList.Visible = v
-                arrow.Text = v and (F.Icons and "arrow_drop_up" or "▴") or (F.Icons and "arrow_drop_down" or "▾")  -- BuilderIcons / Unicode
+                arrow.Text = v and icon("ArrowUp") or icon("ArrowDown")
                 if v then
                     dropdownList.Size = UDim2.new(0, 200, 0, 0)
                     TweenIn(dropdownList, 0.15, {
