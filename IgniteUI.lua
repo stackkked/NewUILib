@@ -425,7 +425,7 @@ local DarkTheme = {
     Font_Main     = Enum.Font.GothamMedium,
     Font_Heading  = Enum.Font.GothamBold,
     Font_Body     = Enum.Font.Gotham,
-    Font_Caption  = Enum.Font.GothamSmall,
+    Font_Caption  = Enum.Font.Gotham,
     Font_Mono     = Enum.Font.RobotoMono,
 
     -- Sizes
