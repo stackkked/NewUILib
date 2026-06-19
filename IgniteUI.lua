@@ -567,7 +567,7 @@ do
         -- The bar itself — thin single-line strip
         local bar = Make("Frame", {
             Name = "NotifBar",
-            Size = UDim2.new(1, 0, 0, 28),
+            Size = UDim2.new(1, 0, 0, 32),
             BackgroundColor3 = theme.Surface,
             BackgroundTransparency = 0.0,
             BorderSizePixel = 0,
@@ -576,38 +576,55 @@ do
             LayoutOrder = #self._notifications + 1,
             Parent = notifContainer,
         })
-        Corner(UDim.new(0, 4)).Parent = bar
+        Corner(UDim.new(0, 5)).Parent = bar
         Stroke(theme.Border, 1, 0.3).Parent = bar
 
-        -- Left accent dot (small circle, not a full stripe — keeps the bar thin)
-        local dot = Make("Frame", {
-            Name = "Dot",
-            Size = UDim2.new(0, 8, 0, 8),
-            Position = UDim2.new(0, 8, 0.5, -4),
+        -- Left accent stripe (4px wide, full height)
+        local stripe = Make("Frame", {
+            Name = "Stripe",
+            Size = UDim2.new(0, 3, 1, 0),
             BackgroundColor3 = accentColor,
             BorderSizePixel = 0,
             Parent = bar,
         })
-        Corner(UDim.new(1, 0)).Parent = dot
+        Corner(UDim.new(0, 2)).Parent = stripe
+        Make("UIGradient", {
+            Color = ColorSequence.new(accentColor, Color3.new(
+                math.min(accentColor.R + 0.1, 1),
+                math.min(accentColor.G + 0.1, 1),
+                math.min(accentColor.B + 0.1, 1)
+            )),
+            Rotation = 90,
+            Parent = stripe,
+        })
 
-        -- Icon glyph (small, left of text)
+        -- Icon circle (small rounded square with accent color)
+        local iconCircle = Make("Frame", {
+            Name = "IconCircle",
+            Size = UDim2.new(0, 20, 0, 20),
+            Position = UDim2.new(0, 10, 0.5, -10),
+            BackgroundColor3 = accentColor,
+            BorderSizePixel = 0,
+            Parent = bar,
+        })
+        Corner(UDim.new(0, 4)).Parent = iconCircle
+
         local iconLabel = Make("TextLabel", {
             Name = "Icon",
-            Size = UDim2.new(0, 18, 0, 18),
-            Position = UDim2.new(0, 22, 0.5, -9),
+            Size = UDim2.new(1, 0, 1, 0),
             BackgroundTransparency = 1,
-            FontFace = iconFont(),
+            FontFace = F.Bold,
             Text = iconGlyph,
-            TextColor3 = accentColor,
-            TextSize = 14,
-            Parent = bar,
+            TextColor3 = Color3.new(1, 1, 1),
+            TextSize = 11,
+            Parent = iconCircle,
         })
 
         -- Single text label — full line, single-line truncation
         local textLabel = Make("TextLabel", {
             Name = "Text",
             Size = UDim2.new(1, -52, 1, 0),
-            Position = UDim2.new(0, 44, 0, 0),
+            Position = UDim2.new(0, 38, 0, 0),
             BackgroundTransparency = 1,
             FontFace = F.Medium,
             Text = line,
@@ -846,6 +863,31 @@ do
         })
         Corner(UDim.new(0, 6)).Parent = list
         Stroke(theme.Border, 1, 0.3).Parent = list
+
+        -- Accent bar at the top of keybind list
+        local topAccent = Make("Frame", {
+            Name = "TopAccent",
+            Size = UDim2.new(1, 0, 0, 2),
+            BackgroundColor3 = theme.Accent,
+            BorderSizePixel = 0,
+            Parent = list,
+        })
+        Corner(UDim.new(0, 6)).Parent = topAccent
+        Make("UIGradient", {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)),
+                ColorSequenceKeypoint.new(0.3, theme.Accent),
+                ColorSequenceKeypoint.new(0.7, theme.AccentLight),
+                ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0)),
+            }),
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(0.3, 0),
+                NumberSequenceKeypoint.new(0.7, 0),
+                NumberSequenceKeypoint.new(1, 1),
+            }),
+            Parent = topAccent,
+        })
         MakeDraggable(list, list)
 
         Make("UIPadding", {
@@ -1085,8 +1127,43 @@ function Library:CreateWindow(options)
         Active = true,
         Parent = RootGui,
     })
-    Corner(theme.CornerLarge).Parent = window
-    Stroke(theme.Border, 1, 0.2).Parent = window
+    Corner(UDim.new(0, 12)).Parent = window
+
+    -- Subtle drop shadow (multi-layer stroke effect)
+    local shadowOuter = Make("ImageLabel", {
+        Name = "Shadow",
+        Size = UDim2.new(1, 60, 1, 60),
+        Position = UDim2.new(0, -30, 0, -30),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://1316045217",  -- soft shadow image
+        ImageColor3 = Color3.new(0, 0, 0),
+        ImageTransparency = 0.4,
+        ScaleType = Enum.ScaleType.Slice,
+        SliceCenter = Rect.new(10, 10, 118, 118),
+        ZIndex = -1,
+        Parent = window,
+    })
+
+    -- Window border stroke (subtle accent on hover)
+    local windowStroke = Make("UIStroke", {
+        Name = "WindowStroke",
+        Color = theme.Border,
+        Thickness = 1,
+        Transparency = 0.1,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Parent = window,
+    })
+
+    -- Subtle radial gradient overlay (atmospheric depth)
+    local bgGradient = Make("Frame", {
+        Name = "BgGradient",
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 0,
+        Parent = window,
+    })
+
     MakeDraggable(window, window)
 
     -- Sidebar (categories)
@@ -1142,6 +1219,20 @@ function Library:CreateWindow(options)
         Parent = sidebar,
     })
 
+    -- Sidebar version label at the bottom (positioned absolutely)
+    local versionLabel = Make("TextLabel", {
+        Name = "SidebarVersion",
+        Size = UDim2.new(1, 0, 0, 18),
+        Position = UDim2.new(0, 0, 1, -22),
+        BackgroundTransparency = 1,
+        FontFace = F.Medium,
+        Text = "v" .. version,
+        TextColor3 = theme.TextMuted,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        Parent = sidebar,
+    })
+
     -- Header bar
     local header = Make("Frame", {
         Name = "Header",
@@ -1151,6 +1242,30 @@ function Library:CreateWindow(options)
         BackgroundTransparency = 0.4,
         BorderSizePixel = 0,
         Parent = window,
+    })
+
+    -- Gradient accent bar at the bottom of header (subtle orange line)
+    local headerAccent = Make("Frame", {
+        Name = "HeaderAccent",
+        Size = UDim2.new(1, 0, 0, 1),
+        Position = UDim2.new(0, 0, 1, 0),
+        BackgroundColor3 = theme.Accent,
+        BackgroundTransparency = 0.6,
+        BorderSizePixel = 0,
+        Parent = header,
+    })
+    local headerAccentGradient = Make("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.new(theme.Accent.R, theme.Accent.G, theme.Accent.B)),
+            ColorSequenceKeypoint.new(0.5, Color3.new(theme.AccentLight.R, theme.AccentLight.G, theme.AccentLight.B)),
+            ColorSequenceKeypoint.new(1, Color3.new(theme.Accent.R, theme.Accent.G, theme.Accent.B)),
+        }),
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1),
+            NumberSequenceKeypoint.new(0.5, 0.3),
+            NumberSequenceKeypoint.new(1, 1),
+        }),
+        Parent = headerAccent,
     })
 
     -- Logo + title in header
@@ -1182,11 +1297,11 @@ function Library:CreateWindow(options)
     local verCorner = Corner(UDim.new(0, 4))
     verCorner.Parent = header.Version
 
-    -- Date in top-right
+    -- Date in top-right (shifted left to make room for close button)
     local dateLabel = Make("TextLabel", {
         Name = "Date",
-        Size = UDim2.new(0, 200, 0, 50),
-        Position = UDim2.new(1, -16, 0, 0),
+        Size = UDim2.new(0, 140, 0, 50),
+        Position = UDim2.new(1, -54, 0, 0),
         BackgroundTransparency = 1,
         FontFace = F.Regular,
         Text = os.date("%b %d, %Y"),
@@ -1195,6 +1310,49 @@ function Library:CreateWindow(options)
         TextXAlignment = Enum.TextXAlignment.Right,
         Parent = header,
     })
+
+    -- Close button (×) in top-right corner
+    local closeBtn = Make("TextButton", {
+        Name = "CloseBtn",
+        Size = UDim2.new(0, 28, 0, 28),
+        Position = UDim2.new(1, -42, 0.5, -14),
+        BackgroundColor3 = theme.SurfaceLight,
+        BackgroundTransparency = 0.5,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        FontFace = F.Regular,
+        Text = icon("Close"),  -- ✕
+        TextColor3 = theme.TextSecondary,
+        TextSize = 14,
+        Parent = header,
+    })
+    Corner(UDim.new(0, 6)).Parent = closeBtn
+    closeBtn.MouseEnter:Connect(function()
+        TweenIn(closeBtn, 0.15, {
+            BackgroundColor3 = theme.Error,
+            BackgroundTransparency = 0,
+            TextColor3 = Color3.new(1, 1, 1),
+        })
+    end)
+    closeBtn.MouseLeave:Connect(function()
+        TweenIn(closeBtn, 0.15, {
+            BackgroundColor3 = theme.SurfaceLight,
+            BackgroundTransparency = 0.5,
+            TextColor3 = theme.TextSecondary,
+        })
+    end)
+    closeBtn.MouseButton1Click:Connect(function()
+        TweenIn(window, 0.2, {
+            Size = UDim2.new(0, window.AbsoluteSize.X * 0.95, 0, window.AbsoluteSize.Y * 0.95),
+            BackgroundTransparency = 1,
+        })
+        task.delay(0.2, function()
+            window.Visible = false
+            -- Restore for next time it's shown
+            window.Size = UDim2.new(0, options.Width or 1100, 0, options.Height or 680)
+            window.BackgroundTransparency = 0
+        end)
+    end)
 
     -- Tab bar (under header)
     local tabBar = Make("Frame", {
@@ -1282,7 +1440,9 @@ function Window:AddTab(options)
     options = options or {}
     local theme = self.Theme
     local tabName = options.Name or "Tab"
-    local tabIcon = options.Icon or icon("Home")
+    -- Don't use a default icon — empty sidebar slot if user didn't pass one
+    -- (previously was icon("Home") = ⌂ which looked like "домики" everywhere)
+    local tabIcon = options.Icon or ""
 
     -- Add sidebar category icon
     local catBtn = Make("TextButton", {
@@ -1316,10 +1476,24 @@ function Window:AddTab(options)
     })
     Corner(theme.CornerSmall).Parent = tabBtn
     Make("UIPadding", {
-        PaddingLeft = UDim.new(0, 12),
-        PaddingRight = UDim.new(0, 12),
+        PaddingLeft = UDim.new(0, 14),
+        PaddingRight = UDim.new(0, 14),
         Parent = tabBtn,
     })
+
+    -- Animated underline indicator (below tab text)
+    local tabUnderline = Make("Frame", {
+        Name = "Underline",
+        Size = UDim2.new(0, 0, 0, 2),
+        Position = UDim2.new(0.5, 0, 1, -2),
+        AnchorPoint = Vector2.new(0.5, 0),
+        BackgroundColor3 = theme.Accent,
+        BorderSizePixel = 0,
+        Visible = false,
+        ZIndex = 3,
+        Parent = tabBtn,
+    })
+    Corner(UDim.new(1, 0)).Parent = tabUnderline
 
     -- Page content (initially hidden)
     local page = Make("ScrollingFrame", {
@@ -1327,10 +1501,12 @@ function Window:AddTab(options)
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        ScrollBarThickness = 4,
+        ScrollBarThickness = 3,
         ScrollBarImageColor3 = theme.Accent,
+        ScrollBarImageTransparency = 0.3,
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        ScrollBarInset = Enum.ScrollBarInset.ScrollBar,
         Visible = false,
         Parent = self.Content,
     })
@@ -1365,11 +1541,15 @@ function Window:AddTab(options)
         if self.ActiveTab ~= tabObj then
             TweenIn(catBtn, 0.12, { BackgroundColor3 = theme.Surface })
         end
+        -- Subtle scale effect on hover
+        TweenIn(catBtn, 0.15, { Size = UDim2.new(0, 52, 0, 52) })
     end)
     catBtn.MouseLeave:Connect(function()
         if self.ActiveTab ~= tabObj then
             TweenIn(catBtn, 0.12, { BackgroundColor3 = theme.SurfaceDark })
         end
+        -- Restore size
+        TweenIn(catBtn, 0.15, { Size = UDim2.new(0, 50, 0, 50) })
     end)
 
     -- Click handler
@@ -1387,6 +1567,28 @@ function Window:AddTab(options)
                 TextColor3 = active and theme.Accent or theme.TextSecondary,
                 BackgroundColor3 = active and theme.Surface or theme.SurfaceDark,
             })
+            -- Animate underline indicator
+            local underline = t.TabButton:FindFirstChild("Underline")
+            if underline then
+                if active then
+                    underline.Visible = true
+                    underline.Size = UDim2.new(0, 0, 0, 2)
+                    TweenIn(underline, 0.25, {
+                        Size = UDim2.new(0.6, 0, 0, 2),
+                        BackgroundTransparency = 0,
+                    })
+                else
+                    TweenIn(underline, 0.15, {
+                        Size = UDim2.new(0, 0, 0, 2),
+                        BackgroundTransparency = 1,
+                    })
+                    task.delay(0.16, function()
+                        if not (self.ActiveTab == t) then
+                            underline.Visible = false
+                        end
+                    end)
+                end
+            end
             -- Add/remove accent stroke on active sidebar button
             local existingStroke = t.CatButton:FindFirstChild("ActiveStroke")
             if active and not existingStroke then
@@ -1442,7 +1644,7 @@ function Window:AddTab(options)
         -- Section title row with accent bar
         local titleRow = Make("Frame", {
             Name = "TitleRow",
-            Size = UDim2.new(1, 0, 0, 18),
+            Size = UDim2.new(1, 0, 0, 20),
             BackgroundTransparency = 1,
             LayoutOrder = 0,
             Parent = sectionFrame,
@@ -1453,22 +1655,27 @@ function Window:AddTab(options)
 
         Make("Frame", {
             Name = "AccentBar",
-            Size = UDim2.new(0, 3, 0, 12),
+            Size = UDim2.new(0, 3, 0, 14),
             BackgroundColor3 = theme.Accent,
             BorderSizePixel = 0,
             LayoutOrder = 1,
             Parent = titleRow,
         })
         Corner(UDim.new(0, 2)).Parent = titleRow.AccentBar
+        local accentGradient = Make("UIGradient", {
+            Color = ColorSequence.new(theme.Accent, theme.AccentLight),
+            Rotation = 90,
+            Parent = titleRow.AccentBar,
+        })
 
         Make("TextLabel", {
             Name = "Title",
             Size = UDim2.new(1, -10, 1, 0),
             BackgroundTransparency = 1,
             FontFace = F.Semibold,
-            Text = sectionName,
+            Text = string.upper(sectionName),
             TextColor3 = theme.TextPrimary,
-            TextSize = 14,
+            TextSize = 13,
             TextXAlignment = Enum.TextXAlignment.Left,
             LayoutOrder = 2,
             Parent = titleRow,
@@ -1566,10 +1773,13 @@ function Window:AddTab(options)
                     TweenIn(checkbox, 0.18, { BackgroundColor3 = theme.Accent })
                     TweenIn(checkStroke, 0.18, { Color = theme.Accent, Transparency = 1 })
                     TweenIn(checkIcon, 0.15, { TextTransparency = 0, Visible = true })
+                    -- Brighten label text when toggle is on
+                    TweenIn(row:FindFirstChild("Label"), 0.18, { TextColor3 = theme.Accent })
                 else
                     TweenIn(checkbox, 0.18, { BackgroundColor3 = theme.SurfaceDark })
                     TweenIn(checkStroke, 0.18, { Color = theme.BorderLight, Transparency = 0 })
                     TweenIn(checkIcon, 0.15, { TextTransparency = 1 })
+                    TweenIn(row:FindFirstChild("Label"), 0.18, { TextColor3 = theme.TextPrimary })
                     task.delay(0.15, function() if not state then checkIcon.Visible = false end end)
                 end
                 if fireCallback ~= false then
@@ -1691,7 +1901,30 @@ function Window:AddTab(options)
                 Parent = track,
             })
             Corner(UDim.new(1, 0)).Parent = knob
-            Stroke(theme.Accent, 1, 0).Parent = knob
+            local knobStroke = Make("UIStroke", {
+                Name = "KnobStroke",
+                Color = theme.Accent,
+                Thickness = 2,
+                Transparency = 0,
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                Parent = knob,
+            })
+
+            -- Knob hover scale effect (entire track hover)
+            track.MouseEnter:Connect(function()
+                TweenIn(knob, 0.15, {
+                    Size = UDim2.new(0, 18, 0, 18),
+                    Position = UDim2.new(knob.Position.X.Scale, knob.Position.X.Offset, 0.5, -9),
+                })
+            end)
+            track.MouseLeave:Connect(function()
+                if not dragging then
+                    TweenIn(knob, 0.15, {
+                        Size = UDim2.new(0, 14, 0, 14),
+                        Position = UDim2.new(knob.Position.X.Scale, knob.Position.X.Offset, 0.5, -7),
+                    })
+                end
+            end)
 
             local value = default
             local dragging = false
@@ -1803,8 +2036,8 @@ function Window:AddTab(options)
 
             local valueLabel = Make("TextButton", {
                 Name = "Value",
-                Size = UDim2.new(0, 90, 0, 22),
-                Position = UDim2.new(1, -100, 0.5, -11),
+                Size = UDim2.new(0, 90, 0, 24),
+                Position = UDim2.new(1, -100, 0.5, -12),
                 BackgroundColor3 = theme.SurfaceDark,
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
@@ -1814,7 +2047,23 @@ function Window:AddTab(options)
                 TextSize = 12,
                 Parent = row,
             })
-            Corner(UDim.new(0, 4)).Parent = valueLabel
+            Corner(UDim.new(0, 5)).Parent = valueLabel
+            -- Accent dot indicator on the left of dropdown value
+            local valueDot = Make("Frame", {
+                Name = "ValueDot",
+                Size = UDim2.new(0, 5, 0, 5),
+                Position = UDim2.new(0, 6, 0.5, -2.5),
+                BackgroundColor3 = theme.Accent,
+                BorderSizePixel = 0,
+                Parent = valueLabel,
+            })
+            Corner(UDim.new(1, 0)).Parent = valueDot
+            -- Padding for the text so it doesn't overlap with the dot
+            Make("UIPadding", {
+                PaddingLeft = UDim.new(0, 16),
+                PaddingRight = UDim.new(0, 20),
+                Parent = valueLabel,
+            })
 
             local arrow = Make("TextLabel", {
                 Size = UDim2.new(0, 14, 0, 14),
@@ -1980,23 +2229,40 @@ function Window:AddTab(options)
 
             local keyBtn = Make("TextButton", {
                 Name = "Key",
-                Size = UDim2.new(0, 50, 0, 22),
-                Position = UDim2.new(1, -100, 0.5, -11),
+                Size = UDim2.new(0, 52, 0, 24),
+                Position = UDim2.new(1, -100, 0.5, -12),
                 BackgroundColor3 = theme.SurfaceDark,
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
-                FontFace = F.Medium,
+                FontFace = F.Semibold,
                 Text = defaultKey and defaultKey.Name or "None",
                 TextColor3 = theme.Accent,
                 TextSize = 12,
                 Parent = row,
             })
-            Corner(UDim.new(0, 4)).Parent = keyBtn
+            Corner(UDim.new(0, 5)).Parent = keyBtn
+            -- Inner shadow effect (top darker, bottom lighter) for 3D keyboard key look
+            local keyGradient = Make("UIGradient", {
+                Color = ColorSequence.new(
+                    Color3.new(theme.SurfaceDark.R * 0.85, theme.SurfaceDark.G * 0.85, theme.SurfaceDark.B * 0.85),
+                    Color3.new(theme.SurfaceDark.R * 1.15, theme.SurfaceDark.G * 1.15, theme.SurfaceDark.B * 1.15)
+                ),
+                Rotation = 90,
+                Parent = keyBtn,
+            })
+            local keyStroke = Make("UIStroke", {
+                Name = "KeyStroke",
+                Color = theme.Accent,
+                Thickness = 1,
+                Transparency = 0.6,
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                Parent = keyBtn,
+            })
 
             local modeBtn = Make("TextButton", {
                 Name = "Mode",
-                Size = UDim2.new(0, 40, 0, 22),
-                Position = UDim2.new(1, -45, 0.5, -11),
+                Size = UDim2.new(0, 42, 0, 24),
+                Position = UDim2.new(1, -44, 0.5, -12),
                 BackgroundColor3 = theme.SurfaceDark,
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
@@ -2006,7 +2272,7 @@ function Window:AddTab(options)
                 TextSize = 11,
                 Parent = row,
             })
-            Corner(UDim.new(0, 4)).Parent = modeBtn
+            Corner(UDim.new(0, 5)).Parent = modeBtn
 
             local state = {
                 Key = defaultKey,
@@ -2084,31 +2350,62 @@ function Window:AddTab(options)
 
             local btn = Make("TextButton", {
                 Name = "Btn_" .. bName,
-                Size = UDim2.new(1, 0, 0, 32),
+                Size = UDim2.new(1, 0, 0, 34),
                 BackgroundColor3 = theme.SurfaceLight,
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
-                FontFace = F.Medium,
+                FontFace = F.Semibold,
                 Text = bName,
                 TextColor3 = theme.TextPrimary,
                 TextSize = 13,
                 LayoutOrder = #section.Components + 1,
                 Parent = sectionFrame,
             })
-            Corner(theme.CornerSmall).Parent = btn
-            AddHover(btn, theme.SurfaceLight, theme.Accent, theme.AccentDark)
-            AddRipple(btn, Color3.new(1, 1, 1))
+            Corner(UDim.new(0, 6)).Parent = btn
 
-            -- Hook hover to also change text color
-            local isHovering = false
+            -- Subtle gradient overlay on the button
+            local btnGradient = Make("UIGradient", {
+                Color = ColorSequence.new(
+                    Color3.new(theme.SurfaceLight.R * 1.1, theme.SurfaceLight.G * 1.1, theme.SurfaceLight.B * 1.1),
+                    theme.SurfaceLight
+                ),
+                Rotation = 90,
+                Parent = btn,
+            })
+
+            -- Hover: gradient color shift to accent
+            local hoverGradient
             btn.MouseEnter:Connect(function()
-                isHovering = true
-                TweenIn(btn, 0.15, { BackgroundColor3 = theme.Accent, TextColor3 = Color3.new(1,1,1) })
+                TweenIn(btn, 0.18, { BackgroundColor3 = theme.Accent, TextColor3 = Color3.new(1,1,1) })
+                if btnGradient then
+                    TweenIn(btnGradient, 0.18, {
+                        Color = ColorSequence.new(theme.AccentLight, theme.AccentDark),
+                    })
+                end
+                TweenIn(btn, 0.15, { Size = UDim2.new(1, 0, 0, 36) })
             end)
             btn.MouseLeave:Connect(function()
-                isHovering = false
-                TweenIn(btn, 0.15, { BackgroundColor3 = theme.SurfaceLight, TextColor3 = theme.TextPrimary })
+                TweenIn(btn, 0.18, { BackgroundColor3 = theme.SurfaceLight, TextColor3 = theme.TextPrimary })
+                if btnGradient then
+                    TweenIn(btnGradient, 0.18, {
+                        Color = ColorSequence.new(
+                            Color3.new(theme.SurfaceLight.R * 1.1, theme.SurfaceLight.G * 1.1, theme.SurfaceLight.B * 1.1),
+                            theme.SurfaceLight
+                        ),
+                    })
+                end
+                TweenIn(btn, 0.15, { Size = UDim2.new(1, 0, 0, 34) })
             end)
+
+            -- Press effect: scale down briefly
+            btn.MouseButton1Down:Connect(function()
+                TweenIn(btn, 0.05, { Size = UDim2.new(1, 0, 0, 32) })
+            end)
+            btn.MouseButton1Up:Connect(function()
+                TweenIn(btn, 0.1, { Size = UDim2.new(1, 0, 0, 36) })
+            end)
+
+            AddRipple(btn, Color3.new(1, 1, 1))
 
             btn.MouseButton1Click:Connect(function()
                 pcall(callback)
