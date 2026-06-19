@@ -71,20 +71,23 @@ local function setParentSafe(gui, parent)
 end
 
 -- ========================================================
--- FONTS — Inter (preferred) with Builder Sans fallback
+-- FONTS — Inter (preferred) with safe enum fallbacks
 -- ========================================================
+-- All Enum.Font fallbacks are validated to exist in current Roblox.
+-- SourceSansMedium / SourceSansSemibold were deprecated — replaced with
+-- SourceSans / GothamMedium (which both still exist).
 local function tryFont(assetPath, weight, enumFallback)
     weight = weight or Enum.FontWeight.Regular
     local ok, font = pcall(function()
         return Font.new(assetPath, weight)
     end)
     if ok and font then return font end
-    -- Try enum fallback
+    -- Try enum fallback (validate it actually exists)
     if enumFallback then
         ok, font = pcall(function() return Font.fromEnum(enumFallback) end)
         if ok and font then return font end
     end
-    -- Last resort: Builder Sans via enum (always available)
+    -- Last resort: Builder Sans via enum (always available in modern Roblox)
     ok, font = pcall(function() return Font.fromEnum(Enum.Font.BuilderSans) end)
     if ok and font then return font end
     return nil
@@ -99,14 +102,21 @@ local function tryIconFont()
         return Font.new("rbxasset://fonts/families/MaterialIcons.json", Enum.FontWeight.Regular)
     end)
     if ok and font then return font end
-    -- Last resort: Builder Sans (icons will appear as boxes — that's why we have UNICODE fallbacks)
+    -- Last resort: Builder Sans (icons will appear as unicode fallback chars)
     return tryFont("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Regular)
+end
+
+-- Helper to safely get an enum font (returns nil if enum doesn't exist)
+local function safeEnumFont(name)
+    local ok, font = pcall(function() return Font.fromEnum(name) end)
+    if ok and font then return font end
+    return nil
 end
 
 local F = {
     Regular   = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Regular, Enum.Font.SourceSans),
-    Medium    = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Medium, Enum.Font.SourceSansMedium),
-    Semibold  = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.SemiBold, Enum.Font.SourceSansSemibold),
+    Medium    = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Medium, Enum.Font.SourceSans),
+    Semibold  = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.SemiBold, Enum.Font.GothamMedium),
     Bold      = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Bold, Enum.Font.GothamBold),
     Black     = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Heavy, Enum.Font.GothamBlack),
     Mono      = tryFont("rbxasset://fonts/families/Inter.json", Enum.FontWeight.Medium, Enum.Font.Code),
