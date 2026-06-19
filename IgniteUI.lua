@@ -74,12 +74,37 @@ end
 -- FONTS — Inter (smooth, modern) + MaterialIcons
 -- ========================================================
 -- Inter is loaded directly from Roblox asset path with proper weight.
--- MaterialIcons is the Roblox built-in icon font.
+-- MaterialIcons: try Enum.Font.MaterialIcons first (modern Roblox), then
+-- fall back to the rbxasset:// asset path (older Roblox / some executors).
 local function makeFont(assetPath, weight)
     return Font.new(assetPath, weight)
 end
 
 local FontWeight = Enum.FontWeight
+
+-- Try to load MaterialIcons through several fallback strategies
+local function loadMaterialIcons()
+    -- Strategy 1: Enum.Font.MaterialIcons (modern Roblox)
+    local ok, font = pcall(function()
+        return Font.fromEnum(Enum.Font.MaterialIcons)
+    end)
+    if ok and font then return font end
+
+    -- Strategy 2: rbxasset:// asset path
+    ok, font = pcall(function()
+        return Font.new("rbxasset://fonts/families/MaterialIcons.json", FontWeight.Regular)
+    end)
+    if ok and font then return font end
+
+    -- Strategy 3: try via Enum.Font.Arimo or fallback to Inter
+    ok, font = pcall(function()
+        return Font.new("rbxasset://fonts/families/MaterialIcons-Regular.json", FontWeight.Regular)
+    end)
+    if ok and font then return font end
+
+    -- If nothing works — return nil and we'll fall back to Unicode icons
+    return nil
+end
 
 local F = {
     Regular   = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.Regular),
@@ -88,41 +113,66 @@ local F = {
     Bold      = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.Bold),
     Black     = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.Heavy),
     Mono      = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.Medium),
-    Icons     = Font.fromEnum(Enum.Font.MaterialIcons),
+    Icons     = loadMaterialIcons(),
 }
 
 -- ========================================================
--- ICONS — Material Icons (Roblox built-in icon font)
+-- ICONS — Material Icons with Unicode fallback
 -- ========================================================
--- MaterialIcons is loaded via Enum.Font.MaterialIcons.
--- Codepoints use Luau \u{XXXX} format (with braces).
-local ICON = {
-    Check     = "\u{e5ca}",  -- check
-    Warning   = "\u{e002}",  -- warning
-    Error     = "\u{e000}",  -- error
-    Info      = "\u{e88f}",  -- info
-    Keyboard  = "\u{e312}",  -- keyboard
-    Close     = "\u{e5cd}",  -- close
-    Add       = "\u{e145}",  -- add
-    Drag      = "\u{e25d}",  -- drag_indicator
-    Search    = "\u{e8b6}",  -- search
-    Settings  = "\u{e8b8}",  -- settings
-    Combat    = "\u{e038}",  -- whatshot (combat)
-    Visuals   = "\u{e417}",  -- visibility
-    Misc      = "\u{e037}",  -- extension
-    Skins     = "\u{ea62}",  -- style
-    Home      = "\u{e88a}",  -- home
-    Bolt      = "\u{ea0c}",  -- bolt
+-- If MaterialIcons font failed to load, fall back to Unicode glyphs
+-- that render in Inter (or any sans-serif font).
+
+-- Material Icons codepoints (used when MaterialIcons font is available)
+local ICON_MATERIAL = {
+    Check     = "\u{e5ca}",
+    Warning   = "\u{e002}",
+    Error     = "\u{e000}",
+    Info      = "\u{e88f}",
+    Keyboard  = "\u{e312}",
+    Close     = "\u{e5cd}",
+    Add       = "\u{e145}",
+    Drag      = "\u{e25d}",
+    Search    = "\u{e8b6}",
+    Settings  = "\u{e8b8}",
+    Combat    = "\u{e038}",
+    Visuals   = "\u{e417}",
+    Misc      = "\u{e037}",
+    Skins     = "\u{ea62}",
+    Home      = "\u{e88a}",
+    Bolt      = "\u{ea0c}",
 }
+
+-- Unicode fallback (renders in Inter and most fonts)
+local ICON_UNICODE = {
+    Check     = "✓",
+    Warning   = "!",
+    Error     = "✕",
+    Info      = "i",
+    Keyboard  = "▢",  -- fallback square (no good keyboard glyph in Inter)
+    Close     = "✕",
+    Add       = "+",
+    Drag      = "≡",
+    Search    = "⌕",
+    Settings  = "⚙",
+    Combat    = "⚔",
+    Visuals   = "◉",
+    Misc      = "⋯",
+    Skins     = "◆",
+    Home      = "⌂",
+    Bolt      = "⚡",
+}
+
+-- Pick the right table based on whether MaterialIcons loaded successfully
+local ICON = F.Icons and ICON_MATERIAL or ICON_UNICODE
 
 -- Pick the icon glyph by name
 local function icon(name)
     return ICON[name] or ""
 end
 
--- Returns the MaterialIcons font face
+-- Returns MaterialIcons font if loaded, otherwise the body font (Inter Medium)
 local function iconFont()
-    return F.Icons
+    return F.Icons or F.Medium
 end
 
 -- ========================================================
@@ -1742,7 +1792,7 @@ function Window:AddTab(options)
                 Position = UDim2.new(1, -16, 0.5, -7),
                 BackgroundTransparency = 1,
                 FontFace = iconFont(),
-                Text = "\u{e5c5}", -- arrow_drop_down (MaterialIcons)
+                Text = F.Icons and "\u{e5c5}" or "▾", -- arrow_drop_down (MaterialIcons) or Unicode fallback
                 TextColor3 = theme.Accent,
                 TextSize = 16,
                 Parent = valueLabel,
@@ -1808,7 +1858,7 @@ function Window:AddTab(options)
             function toggleOpen(v)
                 open = v
                 dropdownList.Visible = v
-                arrow.Text = v and "\u{e5c7}" or "\u{e5c5}"  -- arrow_drop_up / arrow_drop_down
+                arrow.Text = v and (F.Icons and "\u{e5c7}" or "▴") or (F.Icons and "\u{e5c5}" or "▾")  -- arrow_drop_up / arrow_drop_down
                 if v then
                     dropdownList.Size = UDim2.new(0, 200, 0, 0)
                     TweenIn(dropdownList, 0.15, {
