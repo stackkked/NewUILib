@@ -2936,7 +2936,7 @@ function Section:_build( parent: Instance, config: any )
         Visible = not self._collapsed,
     } )
     addList( body, Enum.FillDirection.Vertical, UDim.new( 0, 8 ),
-             Enum.HorizontalAlignment.Stretch, Enum.VerticalAlignment.Top )
+             Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top )
     self._body = body
     self:_addInstance( body, "body" )
 
@@ -3069,7 +3069,7 @@ function Subsection:_build( parent: Instance, config: any )
         LayoutOrder = config.Order or 0,
     } )
     addList( container, Enum.FillDirection.Vertical, UDim.new( 0, 16 ),
-             Enum.HorizontalAlignment.Stretch, Enum.VerticalAlignment.Top )
+             Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top )
     self._container = container
     self:_addInstance( container, "container" )
 
@@ -3510,7 +3510,7 @@ function Window:_build( config: any )
     contentPad.PaddingRight = UDim.new( 0, 16 )
     contentPad.Parent = content
     local contentList = addList( content, Enum.FillDirection.Vertical,
-        UDim.new( 0, 0 ), Enum.HorizontalAlignment.Stretch,
+        UDim.new( 0, 0 ), Enum.HorizontalAlignment.Center,
         Enum.VerticalAlignment.Top )
     self._content = content
     self:_addInstance( content, "content" )
@@ -4247,7 +4247,7 @@ function KeybindListManager:_build()
         AutomaticSize = Enum.AutomaticSize.Y,
     } )
     addList( list, Enum.FillDirection.Vertical, UDim.new( 0, 4 ),
-             Enum.HorizontalAlignment.Stretch, Enum.VerticalAlignment.Top )
+             Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top )
     local pad = Instance.new( "UIPadding" )
     pad.PaddingLeft = UDim.new( 0, 8 )
     pad.PaddingRight = UDim.new( 0, 8 )
