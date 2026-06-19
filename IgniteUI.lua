@@ -71,75 +71,74 @@ local function setParentSafe(gui, parent)
 end
 
 -- ========================================================
--- FONTS — Inter (smooth, modern) + MaterialIcons
+-- FONTS — Inter via marketplace asset ID + BuilderIcons
 -- ========================================================
--- Inter is loaded directly from Roblox asset path with proper weight.
--- MaterialIcons: try Enum.Font.MaterialIcons first (modern Roblox), then
--- fall back to the rbxasset:// asset path (older Roblox / some executors).
-local function makeFont(assetPath, weight)
-    return Font.new(assetPath, weight)
-end
+-- IMPORTANT FINDINGS (verified 2024-2026):
+--   • `rbxasset://fonts/families/Inter.json` does NOT exist locally → "Temp read failed"
+--     Inter is a Creator-Marketplace font, must use its asset ID via rbxassetid://
+--   • `Enum.Font.MaterialIcons` does NOT exist in Roblox's Enum.Font list
+--   • Roblox ships an internal BuilderIcons font (~550 vector icons) that DOES work
+--   • `Tween:Wait()` doesn't exist — only `tween.Completed:Wait()` works (it's an RBXScriptSignal)
 
 local FontWeight = Enum.FontWeight
 
--- Try to load MaterialIcons through several fallback strategies
-local function loadMaterialIcons()
-    -- Strategy 1: Enum.Font.MaterialIcons (modern Roblox)
-    local ok, font = pcall(function()
-        return Font.fromEnum(Enum.Font.MaterialIcons)
-    end)
-    if ok and font then return font end
+-- Inter asset ID from the Roblox Creator Marketplace
+local INTER_FONT_ID = "rbxassetid://12187365364"
 
-    -- Strategy 2: rbxasset:// asset path
-    ok, font = pcall(function()
-        return Font.new("rbxasset://fonts/families/MaterialIcons.json", FontWeight.Regular)
-    end)
-    if ok and font then return font end
+-- BuilderIcons font (internal Roblox icon font, ships with every install)
+local BUILDER_ICONS_PATH = "rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json"
 
-    -- Strategy 3: try via Enum.Font.Arimo or fallback to Inter
-    ok, font = pcall(function()
-        return Font.new("rbxasset://fonts/families/MaterialIcons-Regular.json", FontWeight.Regular)
-    end)
+local function safeFont(fontFn)
+    local ok, font = pcall(fontFn)
     if ok and font then return font end
-
-    -- If nothing works — return nil and we'll fall back to Unicode icons
     return nil
 end
 
 local F = {
-    Regular   = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.Regular),
-    Medium    = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.Medium),
-    Semibold  = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.SemiBold),
-    Bold      = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.Bold),
-    Black     = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.Heavy),
-    Mono      = makeFont("rbxasset://fonts/families/Inter.json", FontWeight.Medium),
-    Icons     = loadMaterialIcons(),
+    Regular   = safeFont(function() return Font.new(INTER_FONT_ID, FontWeight.Regular) end),
+    Medium    = safeFont(function() return Font.new(INTER_FONT_ID, FontWeight.Medium) end),
+    Semibold  = safeFont(function() return Font.new(INTER_FONT_ID, FontWeight.SemiBold) end),
+    Bold      = safeFont(function() return Font.new(INTER_FONT_ID, FontWeight.Bold) end),
+    Black     = safeFont(function() return Font.new(INTER_FONT_ID, FontWeight.Heavy) end),
+    Mono      = safeFont(function() return Font.new(INTER_FONT_ID, FontWeight.Medium) end),
+    Icons     = safeFont(function() return Font.new(BUILDER_ICONS_PATH, FontWeight.Regular) end),
 }
 
--- ========================================================
--- ICONS — Material Icons with Unicode fallback
--- ========================================================
--- If MaterialIcons font failed to load, fall back to Unicode glyphs
--- that render in Inter (or any sans-serif font).
+-- Fallbacks if Inter failed: Builder Sans (always available)
+if not F.Regular then
+    F.Regular  = safeFont(function() return Font.fromEnum(Enum.Font.BuilderSans) end)
+    F.Medium   = safeFont(function() return Font.fromEnum(Enum.Font.BuilderSansMedium) end) or F.Regular
+    F.Semibold = safeFont(function() return Font.fromEnum(Enum.Font.BuilderSansSemibold) end) or F.Medium
+    F.Bold     = safeFont(function() return Font.fromEnum(Enum.Font.BuilderSansBold) end) or F.Semibold
+    F.Black    = F.Bold
+    F.Mono     = safeFont(function() return Font.fromEnum(Enum.Font.Code) end) or F.Regular
+end
 
--- Material Icons codepoints (used when MaterialIcons font is available)
-local ICON_MATERIAL = {
-    Check     = "\u{e5ca}",
-    Warning   = "\u{e002}",
-    Error     = "\u{e000}",
-    Info      = "\u{e88f}",
-    Keyboard  = "\u{e312}",
-    Close     = "\u{e5cd}",
-    Add       = "\u{e145}",
-    Drag      = "\u{e25d}",
-    Search    = "\u{e8b6}",
-    Settings  = "\u{e8b8}",
-    Combat    = "\u{e038}",
-    Visuals   = "\u{e417}",
-    Misc      = "\u{e037}",
-    Skins     = "\u{ea62}",
-    Home      = "\u{e88a}",
-    Bolt      = "\u{ea0c}",
+-- ========================================================
+-- ICONS — BuilderIcons (Roblox's built-in icon font)
+-- ========================================================
+-- BuilderIcons uses TEXT NAMES as glyph identifiers (not codepoints).
+-- Set FontFace to F.Icons, then set Text to the icon name.
+-- If BuilderIcons failed to load, fall back to Unicode symbols in Inter.
+
+-- BuilderIcons glyph names (verified against Roblox's internal icon set)
+local ICON_BUILDER = {
+    Check     = "check",
+    Warning   = "warning",
+    Error     = "error",
+    Info      = "info",
+    Keyboard  = "keyboard",
+    Close     = "close",
+    Add       = "add",
+    Drag      = "drag_indicator",
+    Search    = "search",
+    Settings  = "settings",
+    Combat    = "whatshot",
+    Visuals   = "visibility",
+    Misc      = "extension",
+    Skins     = "style",
+    Home      = "home",
+    Bolt      = "bolt",
 }
 
 -- Unicode fallback (renders in Inter and most fonts)
@@ -148,7 +147,7 @@ local ICON_UNICODE = {
     Warning   = "!",
     Error     = "✕",
     Info      = "i",
-    Keyboard  = "▢",  -- fallback square (no good keyboard glyph in Inter)
+    Keyboard  = "▢",
     Close     = "✕",
     Add       = "+",
     Drag      = "≡",
@@ -162,15 +161,15 @@ local ICON_UNICODE = {
     Bolt      = "⚡",
 }
 
--- Pick the right table based on whether MaterialIcons loaded successfully
-local ICON = F.Icons and ICON_MATERIAL or ICON_UNICODE
+-- Pick the right table based on whether BuilderIcons loaded successfully
+local ICON = F.Icons and ICON_BUILDER or ICON_UNICODE
 
 -- Pick the icon glyph by name
 local function icon(name)
     return ICON[name] or ""
 end
 
--- Returns MaterialIcons font if loaded, otherwise the body font (Inter Medium)
+-- Returns BuilderIcons font if loaded, otherwise Inter Medium (for Unicode glyphs)
 local function iconFont()
     return F.Icons or F.Medium
 end
@@ -225,8 +224,9 @@ end
 -- ========================================================
 -- UTILITY: Tween
 -- ========================================================
--- IMPORTANT: Roblox's Tween object DOES NOT have a :Wait() method in Luau.
--- Use TweenWait() helper instead of calling tween:Wait() directly.
+-- IMPORTANT: Tween:Wait() does NOT exist in Luau — only RBXScriptSignal has :Wait().
+-- The correct pattern is `tween.Completed:Wait()` (Completed IS an RBXScriptSignal).
+-- This yields the current thread until the tween finishes (or is cancelled).
 local function Tween(obj, time, style, dir, props)
     local info = TweenInfo.new(time, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out)
     local t = TweenService:Create(obj, info, props)
@@ -235,32 +235,19 @@ local function Tween(obj, time, style, dir, props)
 end
 
 -- Safely wait for a tween to complete.
--- Uses Completed:Wait() (works in Luau); falls back to task.wait(time) if signal fails.
+-- Uses tween.Completed:Wait() — the canonical Luau pattern.
+-- Falls back to task.wait(time) if Completed:Wait() throws (rare executor edge case).
 local function TweenWait(tween, time)
-    if not tween then return end
-    time = time or 0
-    -- Try Completed signal first
+    if not tween then
+        task.wait(time or 0)
+        return
+    end
     local ok = pcall(function()
-        if tween.Completed then
-            local conn
-            conn = tween.Completed:Connect(function() conn:Disconnect() end)
-        end
+        tween.Completed:Wait()
     end)
-    if ok and tween.Completed then
-        local done = false
-        local conn = tween.Completed:Connect(function()
-            done = true
-            conn:Disconnect()
-        end)
-        -- Safety timeout in case Completed never fires
-        local startTime = os.clock()
-        while not done and (os.clock() - startTime) < (time + 1) do
-            task.wait(0.03)
-        end
-        if conn.Connected then conn:Disconnect() end
-    else
-        -- Fallback: just wait the duration
-        task.wait(time)
+    if not ok then
+        -- Fallback: yield the duration manually
+        task.wait(time or 0)
     end
 end
 
@@ -276,7 +263,7 @@ local function TweenBounce(obj, time, props)
     return Tween(obj, time, Enum.EasingStyle.Back, Enum.EasingDirection.Out, props)
 end
 
--- Helpers that create AND wait (so callers don't need to call :Wait())
+-- Convenience: create + wait
 local function TweenInWait(obj, time, props)
     local t = TweenIn(obj, time, props)
     TweenWait(t, time)
@@ -1792,7 +1779,7 @@ function Window:AddTab(options)
                 Position = UDim2.new(1, -16, 0.5, -7),
                 BackgroundTransparency = 1,
                 FontFace = iconFont(),
-                Text = F.Icons and "\u{e5c5}" or "▾", -- arrow_drop_down (MaterialIcons) or Unicode fallback
+                Text = F.Icons and "arrow_drop_down" or "▾", -- BuilderIcons name / Unicode fallback
                 TextColor3 = theme.Accent,
                 TextSize = 16,
                 Parent = valueLabel,
@@ -1858,7 +1845,7 @@ function Window:AddTab(options)
             function toggleOpen(v)
                 open = v
                 dropdownList.Visible = v
-                arrow.Text = v and (F.Icons and "\u{e5c7}" or "▴") or (F.Icons and "\u{e5c5}" or "▾")  -- arrow_drop_up / arrow_drop_down
+                arrow.Text = v and (F.Icons and "arrow_drop_up" or "▴") or (F.Icons and "arrow_drop_down" or "▾")  -- BuilderIcons / Unicode
                 if v then
                     dropdownList.Size = UDim2.new(0, 200, 0, 0)
                     TweenIn(dropdownList, 0.15, {
