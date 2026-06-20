@@ -71,13 +71,14 @@ local function setParentSafe(gui, parent)
 end
 
 -- ========================================================
--- FONTS — Inter via marketplace asset ID + BuilderIcons
+-- FONTS — Inter via marketplace asset ID
 -- ========================================================
 -- IMPORTANT FINDINGS (verified 2024-2026):
 --   • `rbxasset://fonts/families/Inter.json` does NOT exist locally → "Temp read failed"
 --     Inter is a Creator-Marketplace font, must use its asset ID via rbxassetid://
 --   • `Enum.Font.MaterialIcons` does NOT exist in Roblox's Enum.Font list
---   • Roblox ships an internal BuilderIcons font (~550 vector icons) that DOES work
+--   • `rbxasset://LuaPackages/Packages/_Index/BuilderIcons/...` does NOT work in executors
+--   • We use Unicode symbols for icons (render in Inter/Builder Sans), no icon font needed
 --   • `Tween:Wait()` doesn't exist — only `tween.Completed:Wait()` works (it's an RBXScriptSignal)
 
 local FontWeight = Enum.FontWeight
@@ -85,14 +86,9 @@ local FontWeight = Enum.FontWeight
 -- Inter asset ID from the Roblox Creator Marketplace
 local INTER_FONT_ID = "rbxassetid://12187365364"
 
--- BuilderIcons font (internal Roblox icon font, ships with every install)
-local BUILDER_ICONS_PATH = "rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json"
-
 local function safeFont(fontFn)
     local ok, font = pcall(fontFn)
     if ok and font then return font end
-    -- Print the error so we can debug
-    print("[Ignite] Font load failed: " .. tostring(font))
     return nil
 end
 
@@ -103,7 +99,7 @@ local F = {
     Bold      = safeFont(function() return Font.new(INTER_FONT_ID, FontWeight.Bold) end),
     Black     = safeFont(function() return Font.new(INTER_FONT_ID, FontWeight.Heavy) end),
     Mono      = safeFont(function() return Font.new(INTER_FONT_ID, FontWeight.Medium) end),
-    Icons     = safeFont(function() return Font.new(BUILDER_ICONS_PATH, FontWeight.Regular) end),
+    Icons     = nil,  -- we use Unicode icons, no icon font needed
 }
 
 -- Fallbacks if Inter failed: Builder Sans (always available)
@@ -117,13 +113,9 @@ if not F.Regular then
 end
 
 -- ========================================================
--- ICONS — Unicode primary (always works), BuilderIcons optional
+-- ICONS — Unicode only (renders in Inter / Builder Sans)
 -- ========================================================
--- Unicode symbols render in Inter and most fonts. They are the PRIMARY system.
--- If BuilderIcons font loads, we use it as the font face but with the same
--- Unicode glyphs (some may render slightly differently, but consistent).
-
--- Unicode glyphs (PRIMARY — renders in Inter, Builder Sans, Source Sans, etc.)
+-- No icon font needed — Unicode symbols are universal.
 local ICON_UNICODE = {
     Check     = "✓",
     Warning   = "!",
@@ -153,11 +145,10 @@ local function icon(name)
     return ICON_UNICODE[name] or ""
 end
 
--- Returns the font face to use for icons:
---   - If BuilderIcons loaded, use it (renders Unicode icons as smooth vector glyphs)
---   - Otherwise use Inter Medium
+-- Returns the font face to use for icons — always the body font (Inter/Builder Sans).
+-- Unicode glyphs render in any font, so we don't need a special icon font.
 local function iconFont()
-    return F.Icons or F.Medium
+    return F.Medium or F.Regular
 end
 
 -- ========================================================
@@ -1141,7 +1132,9 @@ function Library:CreateWindow(options)
         Parent = window,
     })
 
-    MakeDraggable(window, window)
+    -- Drag is handled ONLY by header + sidebar (not whole window)
+    -- This prevents slider/dropdown/button clicks from triggering drag.
+    -- MakeDraggable will be called after header and sidebar are created below.
 
     -- Sidebar (categories) — uses ABSOLUTE positions instead of UIListLayout
     -- because some executors don't respect VerticalAlignment = Top.
@@ -1371,6 +1364,25 @@ function Library:CreateWindow(options)
     })
     local contentPad = Padding(8)
     contentPad.Parent = content
+
+    -- Drag handle — invisible frame covering header + tabbar only.
+    -- Sidebar has its own drag (see MakeDraggable call after sidebar).
+    -- Clicks on content (sliders, toggles, buttons) won't trigger drag.
+    local dragHandle = Make("TextButton", {
+        Name = "DragHandle",
+        Size = UDim2.new(1, -52, 0, 64),  -- covers header + tabbar only (right of sidebar, top 64px)
+        Position = UDim2.new(0, 52, 0, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        Text = "",
+        Active = true,
+        ZIndex = 10,  -- above content, but below modals
+        Parent = window,
+    })
+    MakeDraggable(window, dragHandle)
+    -- Sidebar is also a drag handle
+    MakeDraggable(window, sidebar)
 
     -- Window object
     local self = setmetatable({
