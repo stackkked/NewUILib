@@ -1122,31 +1122,16 @@ function Library:CreateWindow(options)
     -- Root window
     local window = Make("Frame", {
         Name = name .. "_Window",
-        Size = UDim2.new(0, options.Width or 960, 0, options.Height or 600),
-        Position = UDim2.new(0.5, -(options.Width or 960) / 2, 0.5, -(options.Height or 600) / 2),
+        Size = UDim2.new(0, options.Width or 720, 0, options.Height or 440),
+        Position = UDim2.new(0.5, -(options.Width or 720) / 2, 0.5, -(options.Height or 440) / 2),
         BackgroundColor3 = theme.Background,
         BorderSizePixel = 0,
         Active = true,
         Parent = RootGui,
     })
-    Corner(UDim.new(0, 12)).Parent = window
+    Corner(UDim.new(0, 10)).Parent = window
 
-    -- Subtle drop shadow (multi-layer stroke effect)
-    local shadowOuter = Make("ImageLabel", {
-        Name = "Shadow",
-        Size = UDim2.new(1, 60, 1, 60),
-        Position = UDim2.new(0, -30, 0, -30),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://1316045217",  -- soft shadow image
-        ImageColor3 = Color3.new(0, 0, 0),
-        ImageTransparency = 0.4,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(10, 10, 118, 118),
-        ZIndex = -1,
-        Parent = window,
-    })
-
-    -- Window border stroke (subtle accent on hover)
+    -- Window border stroke (subtle, no shadow)
     local windowStroke = Make("UIStroke", {
         Name = "WindowStroke",
         Color = theme.Border,
@@ -1156,22 +1141,12 @@ function Library:CreateWindow(options)
         Parent = window,
     })
 
-    -- Subtle radial gradient overlay (atmospheric depth)
-    local bgGradient = Make("Frame", {
-        Name = "BgGradient",
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ZIndex = 0,
-        Parent = window,
-    })
-
     MakeDraggable(window, window)
 
     -- Sidebar (categories)
     local sidebar = Make("Frame", {
         Name = "Sidebar",
-        Size = UDim2.new(0, 60, 1, 0),
+        Size = UDim2.new(0, 52, 1, 0),
         BackgroundColor3 = theme.SurfaceDark,
         BorderSizePixel = 0,
         Parent = window,
@@ -1187,7 +1162,9 @@ function Library:CreateWindow(options)
         Parent = sidebar,
     })
 
-    local sidebarList = ListLayout(8, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Center)
+    -- IMPORTANT: VerticalAlignment = Top so logo stays at top
+    local sidebarList = ListLayout(6, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Center)
+    sidebarList.VerticalAlignment = Enum.VerticalAlignment.Top
     sidebarList.Parent = sidebar
     local sidebarPad = Padding(6)
     sidebarPad.Parent = sidebar
@@ -1195,7 +1172,7 @@ function Library:CreateWindow(options)
     -- Logo at top of sidebar
     local logoFrame = Make("Frame", {
         Name = "Logo",
-        Size = UDim2.new(0, 40, 0, 40),
+        Size = UDim2.new(0, 36, 0, 36),
         BackgroundColor3 = theme.Accent,
         BorderSizePixel = 0,
         LayoutOrder = 0,
@@ -1209,37 +1186,40 @@ function Library:CreateWindow(options)
         FontFace = F.Black,
         Text = string.sub(name, 1, 1):upper(),
         TextColor3 = Color3.new(1, 1, 1),
-        TextSize = 20,
+        TextSize = 18,
         Parent = logoFrame,
     })
 
     -- Spacer
     Make("Frame", {
-        Size = UDim2.new(0, 0, 0, 8),
+        Size = UDim2.new(0, 0, 0, 4),
         BackgroundTransparency = 1,
         LayoutOrder = 1,
         Parent = sidebar,
     })
 
-    -- Sidebar version label at the bottom (positioned absolutely)
+    -- Sidebar version label at the bottom of sidebar.
+    -- IMPORTANT: Parent = window (NOT sidebar), because sidebar has UIListLayout
+    -- which would override our absolute Position. Window has no layout.
     local versionLabel = Make("TextLabel", {
         Name = "SidebarVersion",
-        Size = UDim2.new(1, 0, 0, 18),
-        Position = UDim2.new(0, 0, 1, -22),
+        Size = UDim2.new(0, 52, 0, 16),
+        Position = UDim2.new(0, 0, 1, -18),
         BackgroundTransparency = 1,
         FontFace = F.Medium,
         Text = "v" .. version,
         TextColor3 = theme.TextMuted,
-        TextSize = 10,
+        TextSize = 9,
         TextXAlignment = Enum.TextXAlignment.Center,
-        Parent = sidebar,
+        ZIndex = 5,
+        Parent = window,
     })
 
     -- Header bar
     local header = Make("Frame", {
         Name = "Header",
-        Size = UDim2.new(1, -60, 0, 42),
-        Position = UDim2.new(0, 60, 0, 0),
+        Size = UDim2.new(1, -52, 0, 38),
+        Position = UDim2.new(0, 52, 0, 0),
         BackgroundColor3 = theme.Background,
         BackgroundTransparency = 0.4,
         BorderSizePixel = 0,
@@ -1273,27 +1253,27 @@ function Library:CreateWindow(options)
     -- Logo + title in header
     local titleText = Make("TextLabel", {
         Name = "Title",
-        Size = UDim2.new(0, 400, 0, 42),
-        Position = UDim2.new(0, 14, 0, 0),
+        Size = UDim2.new(0, 400, 0, 38),
+        Position = UDim2.new(0, 12, 0, 0),
         BackgroundTransparency = 1,
         FontFace = F.Bold,
         Text = name,
         TextColor3 = theme.TextPrimary,
-        TextSize = 16,
+        TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Left,
         Parent = header,
     })
     -- Version badge
     Make("TextLabel", {
         Name = "Version",
-        Size = UDim2.new(0, 50, 0, 18),
-        Position = UDim2.new(0, 14 + #name * 9 + 12, 0, 12),
+        Size = UDim2.new(0, 44, 0, 16),
+        Position = UDim2.new(0, 12 + #name * 8 + 10, 0, 11),
         BackgroundColor3 = theme.SurfaceLight,
         BorderSizePixel = 0,
         FontFace = F.Medium,
         Text = "v" .. version,
         TextColor3 = theme.Accent,
-        TextSize = 10,
+        TextSize = 9,
         Parent = header,
     })
     local verCorner = Corner(UDim.new(0, 4))
@@ -1302,13 +1282,13 @@ function Library:CreateWindow(options)
     -- Date in top-right (shifted left to make room for close button)
     local dateLabel = Make("TextLabel", {
         Name = "Date",
-        Size = UDim2.new(0, 130, 0, 42),
-        Position = UDim2.new(1, -48, 0, 0),
+        Size = UDim2.new(0, 110, 0, 38),
+        Position = UDim2.new(1, -42, 0, 0),
         BackgroundTransparency = 1,
         FontFace = F.Regular,
         Text = os.date("%b %d, %Y"),
         TextColor3 = theme.TextSecondary,
-        TextSize = 12,
+        TextSize = 11,
         TextXAlignment = Enum.TextXAlignment.Right,
         Parent = header,
     })
@@ -1316,8 +1296,8 @@ function Library:CreateWindow(options)
     -- Close button (×) in top-right corner
     local closeBtn = Make("TextButton", {
         Name = "CloseBtn",
-        Size = UDim2.new(0, 24, 0, 24),
-        Position = UDim2.new(1, -36, 0.5, -12),
+        Size = UDim2.new(0, 22, 0, 22),
+        Position = UDim2.new(1, -32, 0.5, -11),
         BackgroundColor3 = theme.SurfaceLight,
         BackgroundTransparency = 0.5,
         BorderSizePixel = 0,
@@ -1325,7 +1305,7 @@ function Library:CreateWindow(options)
         FontFace = F.Regular,
         Text = icon("Close"),  -- ✕
         TextColor3 = theme.TextSecondary,
-        TextSize = 12,
+        TextSize = 11,
         Parent = header,
     })
     Corner(UDim.new(0, 5)).Parent = closeBtn
@@ -1351,7 +1331,7 @@ function Library:CreateWindow(options)
         task.delay(0.2, function()
             window.Visible = false
             -- Restore for next time it's shown
-            window.Size = UDim2.new(0, options.Width or 960, 0, options.Height or 600)
+            window.Size = UDim2.new(0, options.Width or 720, 0, options.Height or 440)
             window.BackgroundTransparency = 0
         end)
     end)
@@ -1359,8 +1339,8 @@ function Library:CreateWindow(options)
     -- Tab bar (under header)
     local tabBar = Make("Frame", {
         Name = "TabBar",
-        Size = UDim2.new(1, -60, 0, 30),
-        Position = UDim2.new(0, 60, 0, 42),
+        Size = UDim2.new(1, -52, 0, 26),
+        Position = UDim2.new(0, 52, 0, 38),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Parent = window,
@@ -1368,21 +1348,21 @@ function Library:CreateWindow(options)
     local tabBarLayout = ListLayout(4, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left)
     tabBarLayout.Parent = tabBar
     Make("UIPadding", {
-        PaddingLeft = UDim.new(0, 12),
-        PaddingRight = UDim.new(0, 12),
+        PaddingLeft = UDim.new(0, 10),
+        PaddingRight = UDim.new(0, 10),
         Parent = tabBar,
     })
 
     -- Content area
     local content = Make("Frame", {
         Name = "Content",
-        Size = UDim2.new(1, -60, 1, -72),
-        Position = UDim2.new(0, 60, 0, 72),
+        Size = UDim2.new(1, -52, 1, -64),
+        Position = UDim2.new(0, 52, 0, 64),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Parent = window,
     })
-    local contentPad = Padding(12)
+    local contentPad = Padding(8)
     contentPad.Parent = content
 
     -- Window object
@@ -1457,18 +1437,18 @@ function Window:AddTab(options)
     -- Add sidebar category icon (compact 36×36 like reference)
     local catBtn = Make("TextButton", {
         Name = "Cat_" .. tabName,
-        Size = UDim2.new(0, 40, 0, 40),
+        Size = UDim2.new(0, 36, 0, 36),
         BackgroundColor3 = theme.SurfaceDark,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         FontFace = iconFont(),
         Text = tabIcon,
         TextColor3 = theme.TextSecondary,
-        TextSize = 18,
+        TextSize = 16,
         LayoutOrder = #self.Categories + 2,
         Parent = self.Sidebar,
     })
-    Corner(UDim.new(0, 8)).Parent = catBtn
+    Corner(UDim.new(0, 7)).Parent = catBtn
 
     -- Tab button in tabbar
     local tabBtn = Make("TextButton", {
@@ -1481,13 +1461,13 @@ function Window:AddTab(options)
         FontFace = F.Medium,
         Text = tabName,
         TextColor3 = theme.TextSecondary,
-        TextSize = 12,
+        TextSize = 11,
         Parent = self.TabBar,
     })
     Corner(theme.CornerSmall).Parent = tabBtn
     Make("UIPadding", {
-        PaddingLeft = UDim.new(0, 10),
-        PaddingRight = UDim.new(0, 10),
+        PaddingLeft = UDim.new(0, 8),
+        PaddingRight = UDim.new(0, 8),
         Parent = tabBtn,
     })
 
@@ -1520,7 +1500,7 @@ function Window:AddTab(options)
         Visible = false,
         Parent = self.Content,
     })
-    local pageLayout = ListLayout(10, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left)
+    local pageLayout = ListLayout(8, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left)
     pageLayout.Parent = page
     Make("UIPadding", {
         PaddingLeft = UDim.new(0, 4),
@@ -1552,14 +1532,14 @@ function Window:AddTab(options)
             TweenIn(catBtn, 0.12, { BackgroundColor3 = theme.Surface })
         end
         -- Subtle scale effect on hover
-        TweenIn(catBtn, 0.15, { Size = UDim2.new(0, 42, 0, 42) })
+        TweenIn(catBtn, 0.15, { Size = UDim2.new(0, 38, 0, 38) })
     end)
     catBtn.MouseLeave:Connect(function()
         if self.ActiveTab ~= tabObj then
             TweenIn(catBtn, 0.12, { BackgroundColor3 = theme.SurfaceDark })
         end
         -- Restore size
-        TweenIn(catBtn, 0.15, { Size = UDim2.new(0, 40, 0, 40) })
+        TweenIn(catBtn, 0.15, { Size = UDim2.new(0, 36, 0, 36) })
     end)
 
     -- Click handler
@@ -1637,7 +1617,7 @@ function Window:AddTab(options)
 
         local sectionFrame = Make("Frame", {
             Name = "Section_" .. sectionName,
-            Size = UDim2.new(0, 230, 0, 0),
+            Size = UDim2.new(0, 200, 0, 0),
             AutomaticSize = Enum.AutomaticSize.Y,
             BackgroundColor3 = theme.Surface,
             BorderSizePixel = 0,
