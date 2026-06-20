@@ -91,6 +91,8 @@ local BUILDER_ICONS_PATH = "rbxasset://LuaPackages/Packages/_Index/BuilderIcons/
 local function safeFont(fontFn)
     local ok, font = pcall(fontFn)
     if ok and font then return font end
+    -- Print the error so we can debug
+    print("[Ignite] Font load failed: " .. tostring(font))
     return nil
 end
 
