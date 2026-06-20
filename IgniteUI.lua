@@ -1143,7 +1143,8 @@ function Library:CreateWindow(options)
 
     MakeDraggable(window, window)
 
-    -- Sidebar (categories)
+    -- Sidebar (categories) — uses ABSOLUTE positions instead of UIListLayout
+    -- because some executors don't respect VerticalAlignment = Top.
     local sidebar = Make("Frame", {
         Name = "Sidebar",
         Size = UDim2.new(0, 52, 1, 0),
@@ -1162,20 +1163,17 @@ function Library:CreateWindow(options)
         Parent = sidebar,
     })
 
-    -- IMPORTANT: VerticalAlignment = Top so logo stays at top
-    local sidebarList = ListLayout(6, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Center)
-    sidebarList.VerticalAlignment = Enum.VerticalAlignment.Top
-    sidebarList.Parent = sidebar
-    local sidebarPad = Padding(6)
-    sidebarPad.Parent = sidebar
+    -- NO UIListLayout on sidebar — we use absolute positions for reliability.
+    -- This guarantees logo stays at top, version stays at bottom, buttons in between.
 
-    -- Logo at top of sidebar
+    -- Logo at top of sidebar (absolute position Y=6)
     local logoFrame = Make("Frame", {
         Name = "Logo",
         Size = UDim2.new(0, 36, 0, 36),
+        Position = UDim2.new(0.5, -18, 0, 6),  -- centered horizontally, 6px from top
         BackgroundColor3 = theme.Accent,
         BorderSizePixel = 0,
-        LayoutOrder = 0,
+        ZIndex = 2,
         Parent = sidebar,
     })
     Corner(UDim.new(0, 8)).Parent = logoFrame
@@ -1190,21 +1188,30 @@ function Library:CreateWindow(options)
         Parent = logoFrame,
     })
 
-    -- Spacer
-    Make("Frame", {
-        Size = UDim2.new(0, 0, 0, 4),
+    -- Container for category buttons (between logo and version label)
+    -- This container DOES use UIListLayout, but we limit its size so vertical
+    -- alignment defaults to top naturally.
+    local catContainer = Make("Frame", {
+        Name = "CatContainer",
+        Size = UDim2.new(1, 0, 1, -100),  -- leaves 50px top (for logo) and 50px bottom (for version)
+        Position = UDim2.new(0, 0, 0, 50),
         BackgroundTransparency = 1,
-        LayoutOrder = 1,
         Parent = sidebar,
     })
+    local catContainerLayout = Make("UIListLayout", {
+        Padding = UDim.new(0, 6),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        FillDirection = Enum.FillDirection.Vertical,
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        VerticalAlignment = Enum.VerticalAlignment.Top,
+        Parent = catContainer,
+    })
 
-    -- Sidebar version label at the bottom of sidebar.
-    -- IMPORTANT: Parent = window (NOT sidebar), because sidebar has UIListLayout
-    -- which would override our absolute Position. Window has no layout.
+    -- Sidebar version label at the very bottom (absolute position)
     local versionLabel = Make("TextLabel", {
         Name = "SidebarVersion",
-        Size = UDim2.new(0, 52, 0, 16),
-        Position = UDim2.new(0, 0, 1, -18),
+        Size = UDim2.new(1, 0, 0, 16),
+        Position = UDim2.new(0, 0, 1, -20),
         BackgroundTransparency = 1,
         FontFace = F.Medium,
         Text = "v" .. version,
@@ -1212,7 +1219,7 @@ function Library:CreateWindow(options)
         TextSize = 9,
         TextXAlignment = Enum.TextXAlignment.Center,
         ZIndex = 5,
-        Parent = window,
+        Parent = sidebar,
     })
 
     -- Header bar
@@ -1372,6 +1379,7 @@ function Library:CreateWindow(options)
         Theme = theme,
         Frame = window,
         Sidebar = sidebar,
+        CatContainer = catContainer,  -- new: container for category buttons (with UIListLayout)
         TabBar = tabBar,
         Content = content,
         Tabs = {},
@@ -1435,6 +1443,7 @@ function Window:AddTab(options)
     local tabIcon = options.Icon or defaultIconFor(tabName)
 
     -- Add sidebar category icon (compact 36×36 like reference)
+    -- Parent: CatContainer (which has UIListLayout with VerticalAlignment = Top)
     local catBtn = Make("TextButton", {
         Name = "Cat_" .. tabName,
         Size = UDim2.new(0, 36, 0, 36),
@@ -1446,7 +1455,7 @@ function Window:AddTab(options)
         TextColor3 = theme.TextSecondary,
         TextSize = 16,
         LayoutOrder = #self.Categories + 2,
-        Parent = self.Sidebar,
+        Parent = self.CatContainer,  -- use CatContainer, not Sidebar
     })
     Corner(UDim.new(0, 7)).Parent = catBtn
 
